@@ -7,7 +7,7 @@
  ******************************************************************************/
 package cz.it4i.fiji.datastore.register_service;
 
-import javax.persistence.Entity;
+import jakarta.persistence.Entity;
 
 import cz.it4i.fiji.datastore.BaseEntity;
 import lombok.AllArgsConstructor;

@@ -31,11 +31,11 @@ import java.util.StringTokenizer;
 import java.util.UUID;
 import java.util.concurrent.LinkedBlockingDeque;
 
-import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.context.BeforeDestroyed;
-import javax.enterprise.event.Observes;
-import javax.inject.Inject;
-import javax.ws.rs.InternalServerErrorException;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.BeforeDestroyed;
+import jakarta.enterprise.event.Observes;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.InternalServerErrorException;
 
 import cz.it4i.fiji.datastore.ApplicationConfiguration;
 import cz.it4i.fiji.datastore.core.Version;

@@ -31,7 +31,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Optional;
 
-import javax.persistence.Entity;
+import jakarta.persistence.Entity;
 
 import cz.it4i.fiji.datastore.BaseEntity;
 import lombok.AllArgsConstructor;

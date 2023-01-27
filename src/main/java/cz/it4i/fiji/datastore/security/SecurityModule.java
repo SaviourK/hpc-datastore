@@ -11,11 +11,11 @@ import static java.util.Optional.ofNullable;
 
 import java.util.Optional;
 
-import javax.enterprise.context.RequestScoped;
-import javax.enterprise.inject.Default;
-import javax.inject.Inject;
-import javax.interceptor.InvocationContext;
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.enterprise.context.RequestScoped;
+import jakarta.enterprise.inject.Default;
+import jakarta.inject.Inject;
+import jakarta.interceptor.InvocationContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 @Default
 @RequestScoped

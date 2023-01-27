@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import javax.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.ApplicationScoped;
 
 import cz.it4i.fiji.datastore.s3.DatasetS3Handler;
 import cz.it4i.fiji.datastore.s3.S3Settings;

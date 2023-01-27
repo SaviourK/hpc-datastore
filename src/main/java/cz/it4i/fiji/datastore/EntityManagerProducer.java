@@ -7,9 +7,9 @@
  ******************************************************************************/
 package cz.it4i.fiji.datastore;
 
-import javax.enterprise.inject.Disposes;
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
+import jakarta.enterprise.inject.Disposes;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
 
 
 public class EntityManagerProducer {

@@ -7,13 +7,13 @@
  ******************************************************************************/
 package cz.it4i.fiji.datastore;
 
-import javax.annotation.Priority;
-import javax.inject.Inject;
-import javax.interceptor.AroundInvoke;
-import javax.interceptor.Interceptor;
-import javax.interceptor.InvocationContext;
+import jakarta.inject.Inject;
+import jakarta.interceptor.AroundInvoke;
+import jakarta.interceptor.Interceptor;
+import jakarta.interceptor.InvocationContext;
 
 import cz.it4i.fiji.datastore.timout_shutdown.TimeoutTimer;
+import jakarta.annotation.Priority;
 import lombok.extern.log4j.Log4j2;
 
 @Log4j2
