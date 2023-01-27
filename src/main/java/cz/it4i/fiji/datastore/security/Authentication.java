@@ -39,7 +39,7 @@ public class Authentication extends BaseEntity {
 
 	private String userID;
 
-	private User user;
+	private User appUser;
 
 	private OAuthServer server;
 
@@ -67,7 +67,7 @@ public class Authentication extends BaseEntity {
 			case "deleteDataset_viaGet":
 			case "setCommonMetadata":
 			case "stopDataServer":
-				user.checkWriteAccess(userID);
+				appUser.checkWriteAccess(userID);
 				break;
 			case "createEmptyDataset":
 			case "queryDataset":
@@ -109,7 +109,7 @@ public class Authentication extends BaseEntity {
 			versions))
 		{
 			if (ver == 0) {
-				user.checkWriteAccess(userID);
+				appUser.checkWriteAccess(userID);
 			}
 		}
 	}
@@ -137,7 +137,7 @@ public class Authentication extends BaseEntity {
 		if (Objects.equals(version, "0") && Objects.equals(mode, "write") ||
 			version == null && mode == null)
 		{
-			user.checkWriteAccess(userID);
+			appUser.checkWriteAccess(userID);
 		}
 	}
 }
