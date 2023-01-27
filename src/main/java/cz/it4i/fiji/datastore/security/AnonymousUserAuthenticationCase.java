@@ -7,8 +7,8 @@
  ******************************************************************************/
 package cz.it4i.fiji.datastore.security;
 
-import javax.interceptor.InvocationContext;
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.interceptor.InvocationContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 class AnonymousUserAuthenticationCase extends Authentication {
 

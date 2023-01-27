@@ -12,10 +12,10 @@ import static cz.it4i.fiji.datastore.security.Constants.SECURITY_TOKEN;
 import java.lang.reflect.Parameter;
 import java.util.Objects;
 
-import javax.interceptor.InvocationContext;
-import javax.persistence.Entity;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.interceptor.InvocationContext;
+import jakarta.persistence.Entity;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 import cz.it4i.fiji.datastore.BaseEntity;
 import cz.it4i.fiji.datastore.register_service.DatasetRegisterServiceEndpoint;

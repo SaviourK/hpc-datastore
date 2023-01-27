@@ -18,7 +18,7 @@ import io.quarkus.runtime.annotations.QuarkusMain;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import cz.it4i.fiji.datastore.management.DataServerManager;
 import cz.it4i.fiji.datastore.timout_shutdown.TimeoutTimer;

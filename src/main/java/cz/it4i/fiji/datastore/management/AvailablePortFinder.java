@@ -15,7 +15,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Random;
 
-import javax.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.ApplicationScoped;
 
 import lombok.extern.log4j.Log4j2;
 

@@ -7,10 +7,10 @@
  ******************************************************************************/
 package cz.it4i.fiji.datastore.security;
 
-import javax.inject.Inject;
-import javax.interceptor.AroundInvoke;
-import javax.interceptor.Interceptor;
-import javax.interceptor.InvocationContext;
+import jakarta.inject.Inject;
+import jakarta.interceptor.AroundInvoke;
+import jakarta.interceptor.Interceptor;
+import jakarta.interceptor.InvocationContext;
 
 import lombok.extern.log4j.Log4j2;
 

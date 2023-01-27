@@ -8,9 +8,9 @@ import java.net.URI;
 import java.util.Comparator;
 import java.util.stream.Collectors;
 
-import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.servlet.http.HttpServletResponse;
 
 import cz.it4i.fiji.datastore.register_service.Dataset;
 import cz.it4i.fiji.datastore.register_service.DatasetRepository;

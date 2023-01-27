@@ -16,7 +16,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import javax.imageio.ImageIO;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import bdv.spimdata.SpimDataMinimal;
 import cz.it4i.fiji.datastore.ApplicationConfiguration;
