@@ -7,8 +7,8 @@
  ******************************************************************************/
 package cz.it4i.fiji.datastore.security;
 
-import jakarta.interceptor.InvocationContext;
-import jakarta.ws.rs.container.ContainerRequestContext;
+import javax.interceptor.InvocationContext;
+import javax.ws.rs.container.ContainerRequestContext;
 
 import cz.it4i.fiji.datastore.DatasetServerEndpoint;
 import cz.it4i.fiji.datastore.management.DataServerManagerEndpoint;

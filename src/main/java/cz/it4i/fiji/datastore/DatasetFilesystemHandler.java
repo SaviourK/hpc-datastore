@@ -28,7 +28,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.Objects;
 
-import jakarta.ws.rs.NotFoundException;
+import javax.ws.rs.NotFoundException;
 
 import org.apache.commons.io.FileUtils;
 import org.janelia.saalfeldlab.n5.N5FSWriter;

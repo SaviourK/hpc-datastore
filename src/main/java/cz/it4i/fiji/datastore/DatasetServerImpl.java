@@ -16,7 +16,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
-import jakarta.ws.rs.NotFoundException;
+import javax.ws.rs.NotFoundException;
 
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DataType;

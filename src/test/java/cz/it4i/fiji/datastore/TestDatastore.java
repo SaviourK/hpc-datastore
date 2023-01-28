@@ -25,7 +25,7 @@ import io.restassured.specification.RequestSpecification;
 import java.nio.ByteBuffer;
 import java.util.Random;
 
-import jakarta.ws.rs.core.Response.Status;
+import javax.ws.rs.core.Response.Status;
 
 import org.apache.http.params.CoreConnectionPNames;
 import org.junit.jupiter.api.BeforeEach;
