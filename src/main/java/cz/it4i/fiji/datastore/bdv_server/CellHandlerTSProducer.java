@@ -17,8 +17,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 
 import cz.it4i.fiji.datastore.ApplicationConfiguration;
 import cz.it4i.fiji.datastore.core.Version;

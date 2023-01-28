@@ -13,10 +13,10 @@ import com.google.common.base.Strings;
 
 import java.io.IOException;
 
-import jakarta.inject.Inject;
-import jakarta.ws.rs.container.ContainerRequestContext;
-import jakarta.ws.rs.container.ContainerRequestFilter;
-import jakarta.ws.rs.ext.Provider;
+import javax.inject.Inject;
+import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.container.ContainerRequestFilter;
+import javax.ws.rs.ext.Provider;
 
 @Provider
 public class OAuthSecurityFilter implements ContainerRequestFilter {
