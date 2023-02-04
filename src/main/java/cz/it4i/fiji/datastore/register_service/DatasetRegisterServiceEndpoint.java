@@ -75,16 +75,27 @@ public class DatasetRegisterServiceEndpoint {
 	}
 	
 	@PUT
-	@POST
 	@Path("datasets/{" + UUID + "}" + "/{" + VERSION_PARAM + "}" + "{" +
 		VERSION_PARAMS + ":/?.*}")
 	//@formatter:on
-	public Response notFound(@Context UriInfo request) {
-		return Response.status(Status.NOT_FOUND).entity(String.format(
-			"Resource %s not found", request.getPath())).build();
+	public Response notFoundPut(@Context UriInfo request) {
+		return notFound(request);
 	}
 
-//@formatter:off
+	@POST
+	@Path("datasets/{" + UUID + "}" + "/{" + VERSION_PARAM + "}" + "{" +
+			VERSION_PARAMS + ":/?.*}")
+	//@formatter:on
+	public Response notFoundPost(@Context UriInfo request) {
+		return notFound(request);
+	}
+
+	private static Response notFound(UriInfo request) {
+		return Response.status(Status.NOT_FOUND).entity(String.format(
+				"Resource %s not found", request.getPath())).build();
+	}
+
+	//@formatter:off
 	@Path("datasets"
 		  + "/{" + UUID + "}"
 			+ "/{" + R_X_PARAM + "}"
@@ -307,9 +318,18 @@ public class DatasetRegisterServiceEndpoint {
 	}
 
 	@PUT
+	@Path("datasets/{" + UUID + "}/channels")
+	public Response notAllowedChannelsPut(@PathParam(UUID) String uuid) {
+		return notAllowedChannels(uuid);
+	}
+
 	@DELETE
 	@Path("datasets/{" + UUID + "}/channels")
-	public Response notAllowedChannels(@PathParam(UUID) String uuid) {
+	public Response notAllowedChannelsDelete(@PathParam(UUID) String uuid) {
+		return notAllowedChannels(uuid);
+	}
+
+	private static Response notAllowedChannels(String uuid) {
 		log.info("not allowed method for channels of dataset=" + uuid);
 		return Response.status(Status.METHOD_NOT_ALLOWED).build();
 	}
