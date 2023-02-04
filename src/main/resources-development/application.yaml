@@ -1,7 +1,15 @@
 quarkus:
   http:
-    port: 8080
-    host: localhost
+    port: 9080
+    ssl:
+      certificate:
+        files:
+          - META-INF/resources/cert.pem
+        key-files:
+          - META-INF/resources/cert-key.pem
+    http2: true
+    ssl-port: 9443
+    host: 0.0.0.0
     read-timeout: 600s
   datasource:
     db-kind: h2
