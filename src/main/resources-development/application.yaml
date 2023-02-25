@@ -10,14 +10,13 @@ quarkus:
     http2: true
     ssl-port: 9443
     host: 0.0.0.0
-    read-timeout: 600s
   datasource:
     db-kind: h2
     jdbc:
       url: jdbc:h2:./target/output/myDb
   hibernate-orm:
     log:
-      sql: true
+    #sql: true
     database:
       generation: update
   shutdown:

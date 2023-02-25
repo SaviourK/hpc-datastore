@@ -48,6 +48,7 @@ import cz.it4i.fiji.datastore.register_service.OperationMode;
 import cz.it4i.fiji.datastore.security.Authorization;
 import lombok.extern.log4j.Log4j2;
 import mpicbg.spim.data.SpimDataException;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 
 @Authorization
 @ApplicationScoped
@@ -73,12 +74,13 @@ public class SharedDatasetServerEndpoint implements Serializable {
 			+ "/{" + R_Z_PARAM +	"}"
 			+ "/{" + VERSION_PARAM + "}")
 	// @formatter:on
+	@Operation(summary = "Get status")
 	@GET
 	public Response getStatus(@PathParam(UUID) String uuid,
 		@PathParam(R_X_PARAM) int rX, @PathParam(R_Y_PARAM) int rY,
 		@PathParam(R_Z_PARAM) int rZ, @PathParam(VERSION_PARAM) String version)
 	{
-
+		log.info("Get status: {}", uuid);
 		RootResponse result = RootResponse.builder().uuid(uuid).mode(
 			OperationMode.READ_WRITE).version(Version.stringToIntVersion(version))
 			.resolutionLevels(Collections.singletonList(
@@ -107,6 +109,7 @@ public class SharedDatasetServerEndpoint implements Serializable {
 			+ "/{" + ANGLE_PARAM +		"}"
 			+ "{" + BLOCKS_PARAM + ":/?.*}")
 	// @formatter:on
+	@Operation(summary = "Read block")
 	@GET
 	public Response readBlock(@PathParam(UUID) String uuid,
 		@PathParam(R_X_PARAM) int rX, @PathParam(R_Y_PARAM) int rY,
@@ -138,6 +141,7 @@ public class SharedDatasetServerEndpoint implements Serializable {
 			+"/{" + ANGLE_PARAM +		"}"
 			+ "{" + BLOCKS_PARAM + ":/?.*}")
 	// @formatter:on
+	@Operation(summary = "Write block")
 	@POST
 	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
 	public Response writeBlock(@PathParam(UUID) String uuid,
@@ -165,6 +169,7 @@ public class SharedDatasetServerEndpoint implements Serializable {
 			+"/{" + CHANNEL_PARAM + "}"
 			+"/{" + ANGLE_PARAM +		"}")
 	// @formatter:on
+	@Operation(summary = "Get type")
 	@GET
 	public Response getType(@PathParam(UUID) String uuid,
 		@PathParam(R_X_PARAM) int rX, @PathParam(R_Y_PARAM) int rY,
@@ -180,6 +185,7 @@ public class SharedDatasetServerEndpoint implements Serializable {
 	@Path("datasets" + "/{" + UUID + "}" + "/{" + R_X_PARAM + "}" + "/{" +
 		R_Y_PARAM + "}" + "/{" + R_Z_PARAM + "}" + "/{" + VERSION_PARAM + "}" +
 		"/stop")
+	@Operation(summary = "Stop data server")
 	public Response stopDataServer() {
 		log.debug("Stop was requested as REST request and ignored");
 
