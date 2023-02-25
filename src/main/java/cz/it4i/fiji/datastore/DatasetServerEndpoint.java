@@ -128,7 +128,7 @@ public class DatasetServerEndpoint implements Serializable {
 			+ "/{" + ANGLE_PARAM + ":\\d+}"
 			+ "{" + BLOCKS_PARAM + ":/?.*}")
 	// @formatter:on
-	@Operation(summary = "write block")
+	@Operation(summary = "Write block")
 	@POST
 	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
 	public Response writeBlock(@PathParam(X_PARAM) long x,
