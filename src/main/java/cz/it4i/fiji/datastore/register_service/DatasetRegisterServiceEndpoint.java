@@ -13,36 +13,30 @@ import static cz.it4i.fiji.datastore.DatasetServerEndpoint.TIME_PARAM;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import javax.inject.Inject;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.InternalServerErrorException;
-import javax.ws.rs.NotFoundException;
-import javax.ws.rs.PATCH;
-import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.QueryParam;
+import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
+import cz.it4i.fiji.datastore.ApplicationConfiguration;
 import cz.it4i.fiji.datastore.core.DatasetDTO;
 import cz.it4i.fiji.datastore.security.Authorization;
 import lombok.extern.log4j.Log4j2;
 import mpicbg.spim.data.SpimDataException;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
 
 @Authorization
 @Log4j2
@@ -68,15 +62,25 @@ public class DatasetRegisterServiceEndpoint {
 	@Inject
 	DatasetRegisterServiceImpl datasetRegisterServiceImpl;
 
+	@Inject
+	ApplicationConfiguration applicationConfiguration;
+
 	@Path("/hello")
 	@GET
+	@Produces(MediaType.TEXT_HTML)
+	@Operation(summary = "Says hello to the world")
+	@APIResponses(value = {
+			@APIResponse(responseCode = "200", description = "Successful operation"),
+			@APIResponse(responseCode = "500", description = "Internal server error")
+	})
 	public Response hello() {
 		return Response.ok("<h1>Hello world</h1>").build();
 	}
-	
+
 	@PUT
 	@Path("datasets/{" + UUID + "}" + "/{" + VERSION_PARAM + "}" + "{" +
-		VERSION_PARAMS + ":/?.*}")
+			VERSION_PARAMS + ":/?.*}")
+	@Operation(summary = "Not found PUT method", description = "Handle NOT found PUT operation")
 	//@formatter:on
 	public Response notFoundPut(@Context UriInfo request) {
 		return notFound(request);
@@ -85,6 +89,7 @@ public class DatasetRegisterServiceEndpoint {
 	@POST
 	@Path("datasets/{" + UUID + "}" + "/{" + VERSION_PARAM + "}" + "{" +
 			VERSION_PARAMS + ":/?.*}")
+	@Operation(summary = "Not found POST method", description = "Handle NOT found POST operation")
 	//@formatter:on
 	public Response notFoundPost(@Context UriInfo request) {
 		return notFound(request);
@@ -104,6 +109,7 @@ public class DatasetRegisterServiceEndpoint {
 			+ "/{" + VERSION_PARAM + "}"
 			+ "/{" + MODE_PARAM +"}")
 // @formatter:on
+	@Operation(summary = "Start dataset server", description = "Start dataset server service")
 	@GET
 	public Response startDatasetServer(@PathParam(UUID) String uuid,
 		@PathParam(R_X_PARAM) int rX, @PathParam(R_Y_PARAM) int rY,
@@ -122,6 +128,7 @@ public class DatasetRegisterServiceEndpoint {
 			URI serverURI = datasetRegisterServiceImpl.start(uuid, new int[] { rX, rY,
 				rZ }, version, opMode, timeout);
 			log.debug("start reading> timeout = {}", timeout);
+			log.info("Redirect to: {}", serverURI.toString());
 			return Response.temporaryRedirect(serverURI).build();
 		}
 		catch (IOException exc) {
@@ -140,6 +147,7 @@ public class DatasetRegisterServiceEndpoint {
 			+ "/{" + R_Z_PARAM +	"}"
 			+ "/{" + RESOLUTION_PARAM + ":[0-9]+/[0-9]+/[0-9]+/?.*}"
 			+ "/write") //TODO use write and merge with other start
+	@Operation(summary = "Start dataset server", description = "Start dataset server service")
 // @formatter:on
 	@GET
 	public Response startDatasetServer(@PathParam(UUID) String uuid,
@@ -166,10 +174,12 @@ public class DatasetRegisterServiceEndpoint {
 	@POST
 	@Path("datasets/")
 	@Consumes(MediaType.APPLICATION_JSON)
+	@Operation(summary = "Create empty dataset object in DB")
 	public Response createEmptyDataset(DatasetDTO dataset)
 	{
 		log.info("creating empty dataset");
 		log.debug("dataset=" + dataset);
+		//printAsJson(dataset);
 		try {
 			java.util.UUID result = datasetRegisterServiceImpl.createEmptyDataset(
 				dataset);
@@ -183,9 +193,20 @@ public class DatasetRegisterServiceEndpoint {
 		}
 	}
 
+	private void printAsJson(DatasetDTO dataset) {
+		ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
+		try {
+			String json = ow.writeValueAsString(dataset);
+			log.info(json);
+		} catch (JsonProcessingException e) {
+			log.error("Exception when printing to json", e);
+		}
+	}
+
 	@POST
 	@Path("datasets/{" + UUID + "}")
 	@Consumes(MediaType.TEXT_PLAIN)
+	@Operation(summary = "Add existing dataset")
 	public Response addExistingDataset(@PathParam(UUID) String uuid)
 	{
 		log.info("adding existing dataset {}", uuid);
@@ -208,6 +229,7 @@ public class DatasetRegisterServiceEndpoint {
 
 	@GET
 	@Path("datasets/{" + UUID + "}")
+	@Operation(summary = "Query dataset")
 	public Response queryDataset(@PathParam(UUID) String uuid) {
 		log.info("get JSON for dataset=" + uuid);
 		DatasetDTO result;
@@ -222,6 +244,7 @@ public class DatasetRegisterServiceEndpoint {
 
 	@DELETE
 	@Path("datasets/{" + UUID + "}")
+	@Operation(summary = "Delete dataset")
 	public Response deleteDataset(@PathParam(UUID) String uuid) {
 		log.info("deleting dataset=" + uuid);
 		try {
@@ -235,6 +258,7 @@ public class DatasetRegisterServiceEndpoint {
 	}
 	@GET
 	@Path("datasets/{" + UUID + "}/delete")
+	@Operation(summary = "Delete dataset via GET")
 	public Response deleteDataset_viaGet(@PathParam(UUID) String uuid) {
 		log.info("deleting (GET) dataset=" + uuid);
 		return deleteDataset(uuid);
@@ -246,6 +270,7 @@ public class DatasetRegisterServiceEndpoint {
 	@Path("datasets/{" + UUID + "}" +
 				"/{" + VERSION_PARAM + "}"+
 			  "{" + VERSION_PARAMS + ":/?.*}")
+	@Operation(summary = "Delete dataset versions")
 //@formatter:on
 	public Response deleteDatasetVersions(@PathParam(UUID) String uuid,
 		@PathParam(VERSION_PARAM) String version,
@@ -268,6 +293,7 @@ public class DatasetRegisterServiceEndpoint {
 	@Path("datasets/{" + UUID + "}" +
 			  "/{" + VERSION_PARAM + "}"+
 			  "{" + VERSION_PARAMS + ":/?.*}/delete")
+	@Operation(summary = "Delete dataset versions via GET")
 //@formatter:on
 	public Response deleteDatasetVersions_viaGet(@PathParam(UUID) String uuid,
 		@PathParam(VERSION_PARAM) String version,
@@ -279,6 +305,7 @@ public class DatasetRegisterServiceEndpoint {
 
 	@GET
 	@Path("datasets/{" + UUID + "}/common-metadata")
+	@Operation(summary = "Get common metadata")
 	public Response getCommonMetadata(@PathParam(UUID) String uuid) {
 		log.info("getting common metadata from dataset=" + uuid);
 		String result = datasetRegisterServiceImpl.getCommonMetadata(uuid);
@@ -288,6 +315,7 @@ public class DatasetRegisterServiceEndpoint {
 	@POST
 	@Path("datasets/{" + UUID + "}/common-metadata")
 	@Consumes(MediaType.TEXT_PLAIN)
+	@Operation(summary = "Set common metadata")
 	public Response setCommonMetadata(@PathParam(UUID) String uuid,
 		String commonMetadata)
 	{
@@ -298,6 +326,7 @@ public class DatasetRegisterServiceEndpoint {
 
 	@POST
 	@Path("datasets/{" + UUID + "}/channels")
+	@Operation(summary = "Add channels")
 	public Response addChannels(@PathParam(UUID) String uuid,
 		String strChannels)
 	{
@@ -319,12 +348,14 @@ public class DatasetRegisterServiceEndpoint {
 
 	@PUT
 	@Path("datasets/{" + UUID + "}/channels")
+	@Operation(summary = "Not allowed channels PUT")
 	public Response notAllowedChannelsPut(@PathParam(UUID) String uuid) {
 		return notAllowedChannels(uuid);
 	}
 
 	@DELETE
 	@Path("datasets/{" + UUID + "}/channels")
+	@Operation(summary = "Not allowed channels DELETE")
 	public Response notAllowedChannelsDelete(@PathParam(UUID) String uuid) {
 		return notAllowedChannels(uuid);
 	}
@@ -336,6 +367,7 @@ public class DatasetRegisterServiceEndpoint {
 
 	@GET
 	@Path("datasets/{" + UUID + "}/channels")
+	@Operation(summary = "Get channels")
 	public Response getChannels(@PathParam(UUID) String uuid)
 	{
 		DatasetDTO result;
@@ -361,6 +393,7 @@ public class DatasetRegisterServiceEndpoint {
 			+ "/{" + ANGLE_PARAM +		"}"
 			+ "/{" + VERSION_PARAM + "}"
 			+ "/rebuild")
+	@Operation(summary = "Rebuild")
 // @formatter:on
 	public Response rebuild(@PathParam(UUID) String uuid,
 		@PathParam(VERSION_PARAM) int version, @PathParam(TIME_PARAM) int time,
