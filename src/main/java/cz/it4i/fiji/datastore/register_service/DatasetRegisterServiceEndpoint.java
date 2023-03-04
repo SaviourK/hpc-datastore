@@ -41,6 +41,7 @@ import javax.ws.rs.core.UriInfo;
 
 import cz.it4i.fiji.datastore.core.DatasetDTO;
 import cz.it4i.fiji.datastore.security.Authorization;
+import io.smallrye.mutiny.Uni;
 import lombok.extern.log4j.Log4j2;
 import mpicbg.spim.data.SpimDataException;
 
@@ -70,8 +71,8 @@ public class DatasetRegisterServiceEndpoint {
 
 	@Path("/hello")
 	@GET
-	public Response hello() {
-		return Response.ok("<h1>Hello world</h1>").build();
+	public Uni<Response> hello() {
+		return Uni.createFrom().item(Response.ok("<h1>Hello world</h1>").build());
 	}
 	
 	@PUT
