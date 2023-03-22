@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 import javax.ws.rs.NotFoundException;
 
@@ -161,8 +162,8 @@ public class DatasetFilesystemHandler implements DatasetHandler {
 
 	@Override
 	public String getLabel() {
-		try {
-			return Files.list(pathOfDataset).filter(Files::isRegularFile).findFirst()
+		try (Stream<Path> list = Files.list(pathOfDataset);){
+			return list.filter(Files::isRegularFile).findFirst()
 				.map(Path::getFileName).map(Path::toString).orElse(null);
 		}
 		catch (IOException exc) {

@@ -34,6 +34,7 @@ import cz.it4i.fiji.datastore.management.DataServerManager;
 import cz.it4i.fiji.datastore.register_service.OperationMode;
 import cz.it4i.fiji.datastore.security.Authorization;
 import cz.it4i.fiji.datastore.timout_shutdown.TimeoutTimer;
+import io.smallrye.mutiny.Uni;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -75,23 +76,26 @@ public class DatasetServerEndpoint implements Serializable {
 	@Path("/")
 	@GET
 	@Operation(summary = "Get Status of server")
-	public Response getStatus()
+	public Uni<Response> getStatus()
 	{
-		RootResponse result = RootResponse.builder().uuid(dataServerManager
-			.getUUID()).mode(
-			dataServerManager.getMode()).version(dataServerManager.getVersion())
-			.resolutionLevels(dataServerManager.getResolutionLevels()).serverTimeout(
-				dataServerManager.getServerTimeout()).build();
-		ResponseBuilder responseBuilder = Response.ok();
-		if (result.getUuid() != null) {
-			responseBuilder.entity(result).type(MediaType.APPLICATION_JSON_TYPE)
-				.build();
-		}
-		else {
-			getResponseAsHTML(responseBuilder);
-		}
+		return Uni.createFrom().item(() -> {
+			RootResponse result = RootResponse.builder().uuid(dataServerManager
+							.getUUID()).mode(
+							dataServerManager.getMode()).version(dataServerManager.getVersion())
+					.resolutionLevels(dataServerManager.getResolutionLevels()).serverTimeout(
+							dataServerManager.getServerTimeout()).build();
+			ResponseBuilder responseBuilder = Response.ok();
+			if (result.getUuid() != null) {
+				responseBuilder.entity(result).type(MediaType.APPLICATION_JSON_TYPE)
+						.build();
+			}
+			else {
+				getResponseAsHTML(responseBuilder);
+			}
 
-		return responseBuilder.build();
+			return responseBuilder.build();
+		});
+
 	}
 
 	@Authorization
@@ -107,13 +111,15 @@ public class DatasetServerEndpoint implements Serializable {
 	// @formatter:on
 	@Operation(summary = "Read block")
 	@GET
-	public Response readBlock(@PathParam(X_PARAM) long x,
+	public Uni<Response> readBlock(@PathParam(X_PARAM) long x,
 		@PathParam(Y_PARAM) long y, @PathParam(Z_PARAM) long z,
 		@PathParam(TIME_PARAM) int time, @PathParam(CHANNEL_PARAM) int channel,
 		@PathParam(ANGLE_PARAM) int angle, @PathParam(BLOCKS_PARAM) String blocks)
 	{
-		return blockRequestHandler.readBlock(datasetServer, x, y, z, time, channel,
-			angle, blocks);
+		return Uni.createFrom().item(() ->
+				blockRequestHandler.readBlock(datasetServer, x, y, z, time, channel,
+				angle, blocks));
+
 
 	}
 
@@ -131,14 +137,17 @@ public class DatasetServerEndpoint implements Serializable {
 	@Operation(summary = "write block")
 	@POST
 	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
-	public Response writeBlock(@PathParam(X_PARAM) long x,
+	public Uni<Response> writeBlock(@PathParam(X_PARAM) long x,
 		@PathParam(Y_PARAM) long y, @PathParam(Z_PARAM) long z,
 		@PathParam(TIME_PARAM) int time, @PathParam(CHANNEL_PARAM) int channel,
 		@PathParam(ANGLE_PARAM) int angle,
 		@PathParam(BLOCKS_PARAM) String blocks, InputStream inputStream)
 	{
-		return blockRequestHandler.writeBlock(datasetServer, x, y, z, time, channel,
-			angle, blocks, inputStream);
+		return Uni.createFrom().item(() -> {
+			return blockRequestHandler.writeBlock(datasetServer, x, y, z, time, channel,
+					angle, blocks, inputStream);
+		});
+
 	}
 
 	@Authorization
@@ -150,10 +159,13 @@ public class DatasetServerEndpoint implements Serializable {
 	// @formatter:on
 	@Operation(summary = "Get type")
 	@GET
-	public Response getType(@PathParam(TIME_PARAM) int time,
+	public Uni<Response> getType(@PathParam(TIME_PARAM) int time,
 		@PathParam(CHANNEL_PARAM) int channel, @PathParam(ANGLE_PARAM) int angle)
 	{
-		return blockRequestHandler.getType(datasetServer, time, channel, angle);
+		return Uni.createFrom().item(() -> {
+			return blockRequestHandler.getType(datasetServer, time, channel, angle);
+		});
+
 	}
 
 	@PostConstruct

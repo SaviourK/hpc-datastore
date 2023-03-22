@@ -14,7 +14,6 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
-import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -286,10 +285,10 @@ public class CellHandlerTS
 		return Response.status(Status.NOT_FOUND).entity("settings.xml").build();
 	}
 
-	public void runForThumbnail(final HttpServletResponse response)
+	public byte[] runForThumbnail()
 		throws IOException
 	{
-		thumbnailProviderTS.runForThumbnail(response);
+		return thumbnailProviderTS.runForThumbnail();
 	}
 
 	/**

@@ -7,7 +7,8 @@
  ******************************************************************************/
 package cz.it4i.fiji.datastore.register_service;
 
-import io.quarkus.hibernate.orm.panache.PanacheRepository;
+import io.quarkus.hibernate.reactive.panache.PanacheRepository;
+import io.quarkus.hibernate.reactive.panache.common.runtime.ReactiveTransactional;
 import io.quarkus.panache.common.Parameters;
 
 import java.io.IOException;
@@ -23,6 +24,7 @@ import javax.ws.rs.NotFoundException;
 
 import cz.it4i.fiji.datastore.ApplicationConfiguration;
 import cz.it4i.fiji.datastore.DatasetHandler;
+import io.smallrye.mutiny.Uni;
 import lombok.extern.log4j.Log4j2;
 import mpicbg.spim.data.SpimData;
 import mpicbg.spim.data.SpimDataException;
@@ -45,51 +47,56 @@ public class DatasetRepository implements PanacheRepository<Dataset>,
 	@Inject
 	ApplicationConfiguration configuration;
 
-	public Dataset findByUUID(String uuid) {
-		Optional<Dataset> result = find("from Dataset where uuid = :uuid",
-			Parameters.with("uuid",
-			uuid)).singleResultOptional();
-		if (result.isEmpty()) {
-			throw new NotFoundException("Dataset with UUID = " + uuid +
-				" not found ");
-		}
-
-		DatasetHandler dfh = configuration.getDatasetHandler(uuid);
-		try {
-			Dataset resultDataset = result.get();
-			resolveVersion(dfh, resultDataset);
-			resolveLabel(resultDataset);
-			resolveViewSetups(resultDataset);
-			return resultDataset;
-		}
-		catch (IOException | SpimDataException exc) {
-			throw new RuntimeException(exc);
-		}
+	public Uni<Dataset> findByUUID(String uuid) {
+		//TODO fix
+		return find("SELECT ds " +
+						"FROM Dataset ds " +
+						"LEFT JOIN FETCH ds.resolutionLevel " +
+						"WHERE ds.uuid = :uuid",
+				Parameters.with("uuid",
+						uuid)).singleResult()
+				.onItem().transform(resultDataset -> {
+					DatasetHandler dfh = configuration.getDatasetHandler(uuid);
+					try {
+						resolveVersion(dfh, resultDataset);
+						resolveLabel(resultDataset);
+						resolveViewSetups(resultDataset);
+						return resultDataset;
+					} catch (IOException | SpimDataException exc) {
+						throw new RuntimeException(exc);
+					}
+				});
 	}
 
-	public DatasetVersion findByUUIDVersion(String uuid, int version) {
-		Dataset dataset = findByUUID(uuid);
-		Optional<DatasetVersion> result;
-		if (version == -1) {
-			result = dataset.getDatasetVersion().stream().max(Comparator.comparing(
-				DatasetVersion::getValue));
-		}
-		else {
-			result = dataset.getDatasetVersion().stream().filter(v -> v
-				.getValue() == version).findAny();
-		}
-		if (result.isEmpty()) {
-			throw new NotFoundException("Dataset with UUID = " + uuid +
-				" has no version " + version);
-		}
-		return result.get();
+	public Uni<DatasetVersion> findByUUIDVersion(String uuid, int version) {
+		return findByUUID(uuid).onItem().transform(dataset -> {
+			Optional<DatasetVersion> result;
+			if (version == -1) {
+				result = dataset.getDatasetVersion().stream().max(Comparator.comparing(
+						DatasetVersion::getValue));
+			}
+			else {
+				result = dataset.getDatasetVersion().stream().filter(v -> v
+						.getValue() == version).findAny();
+			}
+			if (result.isEmpty()) {
+				throw new NotFoundException("Dataset with UUID = " + uuid +
+						" has no version " + version);
+			}
+			return result.get();
+		});
+
 	}
 
 	@Override
-	public void persist(Dataset entity) {
-		PanacheRepository.super.persist(entity);
-		configuration.getDatasetHandler(entity.getUuid()).setLabel(entity
-			.getLabel());
+	@ReactiveTransactional
+	public Uni<Dataset> persist(Dataset entity) {
+		return PanacheRepository.super.persist(entity)
+				.onItem().transform(dataset -> {
+					configuration.getDatasetHandler(entity.getUuid()).setLabel(entity
+							.getLabel());
+					return dataset;
+				});
 	}
 
 	private void resolveVersion(DatasetHandler dh,

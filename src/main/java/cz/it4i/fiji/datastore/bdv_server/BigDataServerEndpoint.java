@@ -11,20 +11,17 @@ import static cz.it4i.fiji.datastore.register_service.DatasetRegisterServiceEndp
 import static cz.it4i.fiji.datastore.register_service.DatasetRegisterServiceEndpoint.VERSION_PARAM;
 
 import com.google.common.base.Strings;
+import io.smallrye.mutiny.Uni;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.jboss.resteasy.reactive.RestResponse;
 
 import java.io.IOException;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
+import javax.ws.rs.*;
+import javax.ws.rs.core.*;
 
 @ApplicationScoped
 @Path("/bdv")
@@ -44,47 +41,66 @@ public class BigDataServerEndpoint {
 	@GET
 	@Path("{" + UUID + "}/json")
 	@Operation(summary = "Get JSON list")
-	public void getJSONList(@PathParam(UUID) String uuid,
-		@Context HttpServletResponse response) throws IOException
+	//TODO fix using HttpServletResponse in reactive approach (error - ut000048: no request is currently active)
+	public Uni<RestResponse<String>> getJSONList(@PathParam(UUID) String uuid) throws IOException
 	{
-		jsonDatasetListHandlerTS.run(uuid, response,
-			uri.getRequestUri());
+		return jsonDatasetListHandlerTS.run(uuid, uri.getRequestUri())
+				.onItem().transform(jsonObject -> {
+					return RestResponse
+							.ResponseBuilder
+							.ok(jsonObject.toString(), MediaType.APPLICATION_JSON_TYPE)
+							.status(HttpServletResponse.SC_OK)
+							.build();
+				});
 	}
 
 	@GET
 	@Path("{" + UUID + "}/{" + VERSION_PARAM + "}")
 	@Operation(summary = "Get Cell")
-	public Response getCell(@PathParam(UUID) String uuid,
-		@PathParam(VERSION_PARAM) String version,
-		@QueryParam(P_PARAM) String cellString)
+	public Uni<Response> getCell(@PathParam(UUID) String uuid,
+								 @PathParam(VERSION_PARAM) String version,
+								 @QueryParam(P_PARAM) String cellString)
 	{
-		CellHandlerTS ts = cellHandlerTSProducer.produce(uri.getBaseUri(), uuid, version);
-		if (Strings.emptyToNull(cellString) == null) {
-			return ts.runForDataset();
-		}
-		return ts.runForCellOrInit(cellString);
+		return cellHandlerTSProducer.produce(uri.getBaseUri(), uuid, version)
+				.onItem().transform(ts -> {
+					if (Strings.emptyToNull(cellString) == null) {
+						return ts.runForDataset();
+					}
+					return ts.runForCellOrInit(cellString);
+				});
 	}
 
 	@GET
 	@Path("{" + UUID + "}/{" + VERSION_PARAM + "}/settings")
 	@Operation(summary = "Get Settings")
-	public Response getSettings(@PathParam(UUID) String uuid,
+	public Uni<Response> getSettings(@PathParam(UUID) String uuid,
 		@PathParam(VERSION_PARAM) String version)
 	{
-		CellHandlerTS ts = cellHandlerTSProducer.produce(uri.getBaseUri(), uuid,
-			version);
-		return ts.runForSettings();
+		return cellHandlerTSProducer.produce(uri.getBaseUri(), uuid, version)
+				.onItem().transform(ts -> {
+					return ts.runForSettings();
+				});
 	}
 
 	@GET
 	@Path("{" + UUID + "}/{" + VERSION_PARAM + "}/png")
 	@Operation(summary = "Get Thumbnail")
-	public void getThumbnail(@PathParam(UUID) String uuid,
-		@PathParam(VERSION_PARAM) String version,
-		@Context HttpServletResponse response) throws IOException
+	//TODO fix using HttpServletResponse in reactive approach (error - ut000048: no request is currently active)
+	public Uni<RestResponse<byte[]>> getThumbnail(@PathParam(UUID) String uuid, @PathParam(VERSION_PARAM) String version) throws IOException
 	{
-		CellHandlerTS ts = cellHandlerTSProducer.produce(uri.getBaseUri(),uuid, version);
-		ts.runForThumbnail(response);
+		return cellHandlerTSProducer.produce(uri.getBaseUri(), uuid, version)
+				.onItem().transform(ts -> {
+					try {
+						//TODO content lenght?
+						final byte[] bytes = ts.runForThumbnail();
+						//response.setContentLength(imageData.length);
+						return RestResponse.ResponseBuilder
+								.ok(bytes, "image/png")
+								.build();
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+				});
 	}
 
 

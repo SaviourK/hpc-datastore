@@ -69,8 +69,8 @@
         <cdi-api.version>2.0.SP1</cdi-api.version>
         <quarkus.platform.group-id>io.quarkus</quarkus.platform.group-id>
         <quarkus.platform.artifact-id>quarkus-universe-bom</quarkus.platform.artifact-id>
-        <quarkus.platform.version>2.16.3.Final</quarkus.platform.version>
-        <quarkus-plugin.version>2.16.3.Final</quarkus-plugin.version>
+        <quarkus.platform.version>2.16.5.Final</quarkus.platform.version>
+        <quarkus-plugin.version>2.16.5.Final</quarkus-plugin.version>
         <persistence-api.version>3.0.0</persistence-api.version>
         <hibernate.version>5.4.25.Final</hibernate.version>
         <derby.version>10.14.2.0</derby.version>
@@ -194,11 +194,11 @@
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-resteasy</artifactId>
+            <artifactId>quarkus-resteasy-reactive</artifactId>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-resteasy-jackson</artifactId>
+            <artifactId>quarkus-resteasy-reactive-jackson</artifactId>
         </dependency>
 
         <dependency>
@@ -220,21 +220,39 @@
         <!-- https://mvnrepository.com/artifact/io.helidon.microprofile.bundles/helidon-microprofile-3.0 -->
         <dependency>
             <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-hibernate-orm</artifactId>
+            <artifactId>quarkus-hibernate-reactive</artifactId>
         </dependency>
 
 
         <!-- Hibernate ORM specific dependencies -->
         <dependency>
             <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-hibernate-orm-panache</artifactId>
+            <artifactId>quarkus-hibernate-reactive-panache</artifactId>
         </dependency>
 
-
-        <!-- https://mvnrepository.com/artifact/io.quarkus/quarkus-jdbc-h2 -->
+        <!--
+        Client for H2 DB
         <dependency>
+            <groupId>io.quarkiverse.quarkus-reactive-h2-client</groupId>
+            <artifactId>quarkus-reactive-h2-client</artifactId>
+            <version>0.1.1</version>
+        </dependency>-->
+
+       <!-- <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-jdbc-h2</artifactId>
+        </dependency>-->
+
+        <!--
+        Context propagation for obtain response in API
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-context-propagation</artifactId>
+        </dependency>-->
+
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-reactive-pg-client</artifactId>
         </dependency>
 
         <dependency>
@@ -312,16 +330,6 @@
             <artifactId>aws-java-sdk-s3</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>com.github.ben-manes.caffeine</groupId>
-            <artifactId>caffeine</artifactId>
-            <version>3.1.5</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.janelia.saalfeldlab</groupId>
-            <artifactId>n5-imglib2</artifactId>
-        </dependency>
     </dependencies>
     <build>
         <plugins>

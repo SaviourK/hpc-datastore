@@ -1,20 +1,23 @@
 package cz.it4i.fiji.datastore.bdv_server;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonWriter;
 
 import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.URI;
 import java.util.Comparator;
 import java.util.stream.Collectors;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
-import javax.servlet.http.HttpServletResponse;
 
 import cz.it4i.fiji.datastore.register_service.Dataset;
 import cz.it4i.fiji.datastore.register_service.DatasetRepository;
 import cz.it4i.fiji.datastore.register_service.DatasetVersion;
+import io.smallrye.mutiny.Uni;
+import lombok.extern.log4j.Log4j2;
 
 /**
  * Provides a list of available datasets on this {@link BigDataServer}
@@ -23,6 +26,7 @@ import cz.it4i.fiji.datastore.register_service.DatasetVersion;
  *         &lt;jan.kozusznik@vsb.cz&gt;
  */
 @SuppressWarnings("javadoc")
+@Log4j2
 @ApplicationScoped
 class JsonDatasetListHandlerTS 
 {
@@ -30,17 +34,15 @@ class JsonDatasetListHandlerTS
 	@Inject
 	DatasetRepository datasetRepository;
 
-	public void run(String uuid, final HttpServletResponse response,
-		URI baseURI)
+	public Uni<JsonObject> run(String uuid, URI baseURI)
 		throws IOException
 	{
-		run(uuid, response, baseURI, false);
+		return run(uuid, baseURI, false);
 	}
 
-	public void run(String uuid, final HttpServletResponse response, URI baseURI,
-		boolean allVersionsInOne) throws IOException
+	public Uni<JsonObject> run(String uuid, URI baseURI,	boolean allVersionsInOne) throws IOException
 	{
-		list(uuid, response, baseURI, allVersionsInOne);
+		return list(uuid, baseURI, allVersionsInOne);
 	}
 
 	public void writeInfoAboutVersion(Dataset dataset, final JsonWriter writer,
@@ -57,7 +59,7 @@ class JsonDatasetListHandlerTS
 		writer.name("description").value("NotImplemented");
 		boolean endsWithSlash = baseURI.toString().endsWith("/");
 		writer.name("datasetUrl").value(baseURI.resolve((endsWithSlash ? "../"
-			: "./") + version + "/")
+			: "./") + version)
 			.toString());
 		writer.name("thumbnailUrl").value(baseURI.resolve((endsWithSlash ? "../"
 			: "./") + version + "/png").toString());
@@ -65,24 +67,24 @@ class JsonDatasetListHandlerTS
 		writer.endObject();
 	}
 
-	private void list(String uuid, final HttpServletResponse response,
-		URI baseURI, boolean allVersionsInOne)
+	private Uni<JsonObject> list(String uuid, URI baseURI, boolean allVersionsInOne)
 		throws IOException
 	{
-		Dataset dataset = datasetRepository.findByUUID(uuid);
-
-		response.setContentType( "application/json" );
-		response.setStatus( HttpServletResponse.SC_OK );
-
-		try (final PrintWriter ow = response.getWriter()) {
-			getJsonDatasetList(dataset, ow, baseURI, allVersionsInOne);
-		}
+		return datasetRepository.findByUUID(uuid).
+				onItem().transform(dataset -> {
+					try {
+						return getJsonDatasetList(dataset, baseURI, allVersionsInOne);
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+				});
 	}
 
-	private void getJsonDatasetList(Dataset dataset, final PrintWriter out,
-		URI baseURI, boolean allVersionsInOne)
+	private JsonObject getJsonDatasetList(Dataset dataset, URI baseURI, boolean allVersionsInOne)
 		throws IOException
 	{
+		StringWriter out = new StringWriter();
+
 		try (final JsonWriter writer = new JsonWriter(out)) {
 
 			writer.setIndent("\t");
@@ -96,6 +98,7 @@ class JsonDatasetListHandlerTS
 			writer.flush();
 
 		}
+		return JsonParser.parseString(out.toString()).getAsJsonObject();
 	}
 
 	private String getContexts(Dataset dataset, final JsonWriter writer,

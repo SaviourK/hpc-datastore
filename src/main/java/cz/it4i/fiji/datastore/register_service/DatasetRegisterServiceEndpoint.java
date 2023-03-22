@@ -12,13 +12,14 @@ import static cz.it4i.fiji.datastore.DatasetServerEndpoint.CHANNEL_PARAM;
 import static cz.it4i.fiji.datastore.DatasetServerEndpoint.TIME_PARAM;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import javax.inject.Inject;
+import javax.transaction.NotSupportedException;
+import javax.transaction.SystemException;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -32,6 +33,8 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import cz.it4i.fiji.datastore.ApplicationConfiguration;
 import cz.it4i.fiji.datastore.core.DatasetDTO;
 import cz.it4i.fiji.datastore.security.Authorization;
+import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.unchecked.Unchecked;
 import lombok.extern.log4j.Log4j2;
 import mpicbg.spim.data.SpimDataException;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -73,8 +76,8 @@ public class DatasetRegisterServiceEndpoint {
 			@APIResponse(responseCode = "200", description = "Successful operation"),
 			@APIResponse(responseCode = "500", description = "Internal server error")
 	})
-	public Response hello() {
-		return Response.ok("<h1>Hello world</h1>").build();
+	public Uni<Response> hello() {
+		return Uni.createFrom().item(Response.ok("<h1>Hello world</h1>").build());
 	}
 
 	@PUT
@@ -82,7 +85,7 @@ public class DatasetRegisterServiceEndpoint {
 			VERSION_PARAMS + ":/?.*}")
 	@Operation(summary = "Not found PUT method", description = "Handle NOT found PUT operation")
 	//@formatter:on
-	public Response notFoundPut(@Context UriInfo request) {
+	public Uni<Response> notFoundPut(@Context UriInfo request) {
 		return notFound(request);
 	}
 
@@ -91,13 +94,15 @@ public class DatasetRegisterServiceEndpoint {
 			VERSION_PARAMS + ":/?.*}")
 	@Operation(summary = "Not found POST method", description = "Handle NOT found POST operation")
 	//@formatter:on
-	public Response notFoundPost(@Context UriInfo request) {
+	public Uni<Response> notFoundPost(@Context UriInfo request) {
 		return notFound(request);
 	}
 
-	private static Response notFound(UriInfo request) {
-		return Response.status(Status.NOT_FOUND).entity(String.format(
-				"Resource %s not found", request.getPath())).build();
+	private static Uni<Response> notFound(UriInfo request) {
+		return Uni.createFrom().item(() ->
+				Response.status(Status.NOT_FOUND).entity(
+						String.format("Resource %s not found", request.getPath())).build());
+
 	}
 
 	//@formatter:off
@@ -111,7 +116,7 @@ public class DatasetRegisterServiceEndpoint {
 // @formatter:on
 	@Operation(summary = "Start dataset server", description = "Start dataset server service")
 	@GET
-	public Response startDatasetServer(@PathParam(UUID) String uuid,
+	public Uni<Response> startDatasetServer(@PathParam(UUID) String uuid,
 		@PathParam(R_X_PARAM) int rX, @PathParam(R_Y_PARAM) int rY,
 		@PathParam(R_Z_PARAM) int rZ, @PathParam(VERSION_PARAM) String version,
 		@PathParam(MODE_PARAM) String modeName,
@@ -121,21 +126,25 @@ public class DatasetRegisterServiceEndpoint {
 		OperationMode opMode = OperationMode.getByUrlPath(modeName);
 
 		if (opMode == OperationMode.NOT_SUPPORTED) {
-			return Response.status(Status.BAD_REQUEST).entity(String.format(
-				"mode (%s) not supported", modeName)).build();
+			return Uni.createFrom().item(Response.status(Status.BAD_REQUEST)
+					.entity(String.format("mode (%s) not supported", modeName))
+					.build());
 		}
-		try {
-			URI serverURI = datasetRegisterServiceImpl.start(uuid, new int[] { rX, rY,
-				rZ }, version, opMode, timeout);
-			log.debug("start reading> timeout = {}", timeout);
-			log.info("Redirect to: {}", serverURI.toString());
-			return Response.temporaryRedirect(serverURI).build();
-		}
-		catch (IOException exc) {
-			log.error("Starting server", exc);
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(
-				"Starting throws exception").build();
-		}
+
+		//TODO fix catch
+			try {
+				return datasetRegisterServiceImpl.start(uuid, new int[]{rX, rY,
+						rZ}, version, opMode, timeout)
+						.onItem().transform(serverURI -> {
+							log.debug("start reading> timeout = {}", timeout);
+							log.info("Redirect to: {}", serverURI.toString());
+							return Response.temporaryRedirect(serverURI).build();
+						});
+
+			} catch (IOException exc) {
+				log.error("Starting server", exc);
+				return Uni.createFrom().item(Response.status(Status.INTERNAL_SERVER_ERROR).entity("Starting throws exception").build());
+			}
 	}
 
 
@@ -150,47 +159,49 @@ public class DatasetRegisterServiceEndpoint {
 	@Operation(summary = "Start dataset server", description = "Start dataset server service")
 // @formatter:on
 	@GET
-	public Response startDatasetServer(@PathParam(UUID) String uuid,
+	public Uni<Response> startDatasetServer(@PathParam(UUID) String uuid,
 		@PathParam(R_X_PARAM) int rX, @PathParam(R_Y_PARAM) int rY,
 		@PathParam(R_Z_PARAM) int rZ,
 		@PathParam(RESOLUTION_PARAM) String resolutionString,
 		@QueryParam(TIMEOUT_PARAM) Long timeout)
 	{
-		log.info("starting2 server for writing dataset=" + uuid);
-		List<int[]> resolutions = getResolutions(rX, rY, rZ, resolutionString);
-		try {
-			URI serverURI = datasetRegisterServiceImpl.start(uuid, resolutions,
-				timeout);
-			log.debug("start reading> timeout = {}", timeout);
-			return Response.temporaryRedirect(serverURI).build();
-		}
-		catch (IOException exc) {
-			log.error("Starting server", exc);
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(
-				"Starting throws exception").build();
-		}
+			log.info("starting2 server for writing dataset=" + uuid);
+			List<int[]> resolutions = getResolutions(rX, rY, rZ, resolutionString);
+
+			//TODO fix IOException
+			try {
+				return datasetRegisterServiceImpl.start(uuid, resolutions,
+						timeout)
+								.onItem().transform(serverURI -> {
+							log.debug("start reading> timeout = {}", timeout);
+							return Response.temporaryRedirect(serverURI).build();
+						});
+
+			} catch (IOException exc) {
+				log.error("Starting server", exc);
+				return Uni.createFrom().item(
+						Response.status(Status.INTERNAL_SERVER_ERROR).entity(
+						"Starting throws exception").build()
+				);
+			}
 	}
 
 	@POST
 	@Path("datasets/")
 	@Consumes(MediaType.APPLICATION_JSON)
 	@Operation(summary = "Create empty dataset object in DB")
-	public Response createEmptyDataset(DatasetDTO dataset)
-	{
+	public Uni<Response> createEmptyDataset(DatasetDTO dataset) throws SpimDataException, SystemException, IOException, NotSupportedException {
 		log.info("creating empty dataset");
 		log.debug("dataset=" + dataset);
 		//printAsJson(dataset);
-		try {
-			java.util.UUID result = datasetRegisterServiceImpl.createEmptyDataset(
-				dataset);
-			return Response.ok().entity(result.toString()).type(
-				MediaType.TEXT_PLAIN).build();
-		}
-		catch (Exception exc) {
-			log.warn("read", exc);
-			return Response.serverError().entity(exc.getMessage()).type(
-				MediaType.TEXT_PLAIN).build();
-		}
+
+		//TODO fixerror
+		return datasetRegisterServiceImpl.createEmptyDataset(dataset)
+				.onItem().transform(Unchecked.function(result -> {
+					return Response.ok().entity(result).type(
+							MediaType.TEXT_PLAIN).build();
+				}));
+
 	}
 
 	private void printAsJson(DatasetDTO dataset) {
@@ -207,61 +218,58 @@ public class DatasetRegisterServiceEndpoint {
 	@Path("datasets/{" + UUID + "}")
 	@Consumes(MediaType.TEXT_PLAIN)
 	@Operation(summary = "Add existing dataset")
-	public Response addExistingDataset(@PathParam(UUID) String uuid)
+	public Uni<Response> addExistingDataset(@PathParam(UUID) String uuid)
 	{
 		log.info("adding existing dataset {}", uuid);
-		try {
-			datasetRegisterServiceImpl.addExistingDataset(uuid);
-		}
-		catch (IOException exc) {
-			throw new NotFoundException("Dataset with uuid " + uuid +
-				"  was not located in storage ");
-		}
-		catch (DatasetAlreadyInsertedException exc) {
-			return Response.status(Status.CONFLICT).entity("Dataset with uuid " + exc
-				.getUuid() + " is already added.").build();
-		}
-		catch (Exception exc) {
-			throw new InternalServerErrorException("Cannot add dataset " + uuid);
-		}
-		return Response.ok().entity("Done.").build();
+		//TODO unchecked splitter
+		return Uni.createFrom().item(() -> {
+			try {
+				datasetRegisterServiceImpl.addExistingDataset(uuid);
+			}
+			catch (IOException exc) {
+				throw new NotFoundException("Dataset with uuid " + uuid +
+						"  was not located in storage ");
+			}
+			catch (DatasetAlreadyInsertedException exc) {
+				return Response.status(Status.CONFLICT).entity("Dataset with uuid " + exc
+						.getUuid() + " is already added.").build();
+			}
+			catch (Exception exc) {
+				throw new InternalServerErrorException("Cannot add dataset " + uuid);
+			}
+			return Response.ok().entity("Done.").build();
+		});
 	}
 
 	@GET
 	@Path("datasets/{" + UUID + "}")
 	@Operation(summary = "Query dataset")
-	public Response queryDataset(@PathParam(UUID) String uuid) {
+	public Uni<Response> queryDataset(@PathParam(UUID) String uuid) throws SpimDataException {
+		//TODO handle SpimDataExpcetion
 		log.info("get JSON for dataset=" + uuid);
-		DatasetDTO result;
-		try {
-			result = datasetRegisterServiceImpl.query(uuid);
-		}
-		catch (SpimDataException exc) {
-			throw new InternalServerErrorException("Query to dataset failed", exc);
-		}
-		return Response.ok(result).type(MediaType.APPLICATION_JSON_TYPE).build();
+		return datasetRegisterServiceImpl.query(uuid)
+				.onItem().transform(Unchecked.function(result -> {
+					return Response.ok(result).type(MediaType.APPLICATION_JSON_TYPE).build();
+				}));
 	}
 
 	@DELETE
 	@Path("datasets/{" + UUID + "}")
 	@Operation(summary = "Delete dataset")
-	public Response deleteDataset(@PathParam(UUID) String uuid) {
+	public Uni<Response> deleteDataset(@PathParam(UUID) String uuid) {
 		log.info("deleting dataset=" + uuid);
-		try {
-			datasetRegisterServiceImpl.deleteDataset(uuid);
-		}
-		catch (Exception exc) {
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(exc
-				.getMessage()).build();
-		}
-		return Response.ok().build();
+		return datasetRegisterServiceImpl.deleteDataset(uuid)
+				.onItem().transform(dataset -> {
+					return Response.ok().build();
+				});
 	}
 	@GET
 	@Path("datasets/{" + UUID + "}/delete")
 	@Operation(summary = "Delete dataset via GET")
-	public Response deleteDataset_viaGet(@PathParam(UUID) String uuid) {
+	public Uni<Response> deleteDataset_viaGet(@PathParam(UUID) String uuid) {
 		log.info("deleting (GET) dataset=" + uuid);
 		return deleteDataset(uuid);
+
 	}
 
 
@@ -272,20 +280,24 @@ public class DatasetRegisterServiceEndpoint {
 			  "{" + VERSION_PARAMS + ":/?.*}")
 	@Operation(summary = "Delete dataset versions")
 //@formatter:on
-	public Response deleteDatasetVersions(@PathParam(UUID) String uuid,
+	public Uni<Response> deleteDatasetVersions(@PathParam(UUID) String uuid,
 		@PathParam(VERSION_PARAM) String version,
 		@PathParam(VERSION_PARAMS) String versions)
 	{
-		log.info("deleting versions from dataset=" + uuid);
-		List<Integer> versionList = getVersions(version, versions);
-		try {
-			datasetRegisterServiceImpl.deleteVersions(uuid, versionList);
-		}
-		catch (IOException exc) {
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(exc
-				.getMessage()).build();
-		}
-		return Response.ok().build();
+		return Uni.createFrom().item(() -> {
+			log.info("deleting versions from dataset=" + uuid);
+					List<Integer> versionList = getVersions(version, versions);
+					try {
+						datasetRegisterServiceImpl.deleteVersions(uuid, versionList);
+					}
+					catch (IOException exc) {
+						return Response.status(Status.INTERNAL_SERVER_ERROR).entity(exc
+								.getMessage()).build();
+					}
+					return Response.ok().build();
+				});
+
+
 	}
 
 	//@formatter:off
@@ -295,7 +307,7 @@ public class DatasetRegisterServiceEndpoint {
 			  "{" + VERSION_PARAMS + ":/?.*}/delete")
 	@Operation(summary = "Delete dataset versions via GET")
 //@formatter:on
-	public Response deleteDatasetVersions_viaGet(@PathParam(UUID) String uuid,
+	public Uni<Response> deleteDatasetVersions_viaGet(@PathParam(UUID) String uuid,
 		@PathParam(VERSION_PARAM) String version,
 		@PathParam(VERSION_PARAMS) String versions)
 	{
@@ -306,82 +318,86 @@ public class DatasetRegisterServiceEndpoint {
 	@GET
 	@Path("datasets/{" + UUID + "}/common-metadata")
 	@Operation(summary = "Get common metadata")
-	public Response getCommonMetadata(@PathParam(UUID) String uuid) {
+	public Uni<Response> getCommonMetadata(@PathParam(UUID) String uuid) {
 		log.info("getting common metadata from dataset=" + uuid);
-		String result = datasetRegisterServiceImpl.getCommonMetadata(uuid);
-		return Response.ok(result).type(MediaType.TEXT_PLAIN).build();
+		return datasetRegisterServiceImpl.getCommonMetadata(uuid)
+				.onItem().transform(result -> {
+					return Response.ok(result).type(MediaType.TEXT_PLAIN).build();
+				});
 	}
 
 	@POST
 	@Path("datasets/{" + UUID + "}/common-metadata")
 	@Consumes(MediaType.TEXT_PLAIN)
 	@Operation(summary = "Set common metadata")
-	public Response setCommonMetadata(@PathParam(UUID) String uuid,
+	public Uni<Response> setCommonMetadata(@PathParam(UUID) String uuid,
 		String commonMetadata)
 	{
-		log.info("setting common metadata into dataset=" + uuid);
-		datasetRegisterServiceImpl.setCommonMetadata(uuid, commonMetadata);
-		return Response.ok().build();
+		return datasetRegisterServiceImpl.setCommonMetadata(uuid, commonMetadata)
+				.onItem().ifNotNull().transform(item -> Response.ok().build())
+				.onItem().ifNull().continueWith(Response.status(Response.Status.NOT_FOUND)::build);
 	}
 
 	@POST
 	@Path("datasets/{" + UUID + "}/channels")
 	@Operation(summary = "Add channels")
-	public Response addChannels(@PathParam(UUID) String uuid,
+	public Uni<Response> addChannels(@PathParam(UUID) String uuid,
 		String strChannels)
 	{
-		try {
-			int channels = strChannels.isEmpty() ? 1 : Integer.parseInt(strChannels);
-			log.info("add channels " + channels + " for dataset=" + uuid);
-			datasetRegisterServiceImpl.addChannels(uuid, channels);
-		}
-		catch (NumberFormatException e) {
-			throw new IllegalArgumentException(strChannels + " is not integer");
-		}
-		catch (Exception exc) {
-			log.warn("read", exc);
-			return Response.serverError().entity(exc.getMessage()).type(
-				MediaType.TEXT_PLAIN).build();
-		}
-		return Response.ok().build();
+		return Uni.createFrom().item(() -> {
+			try {
+				int channels = strChannels.isEmpty() ? 1 : Integer.parseInt(strChannels);
+				log.info("add channels " + channels + " for dataset=" + uuid);
+				datasetRegisterServiceImpl.addChannels(uuid, channels);
+			}
+			catch (NumberFormatException e) {
+				throw new IllegalArgumentException(strChannels + " is not integer");
+			}
+			catch (Exception exc) {
+				log.warn("read", exc);
+				return Response.serverError().entity(exc.getMessage()).type(
+						MediaType.TEXT_PLAIN).build();
+			}
+			return Response.ok().build();
+		});
+
 	}
 
 	@PUT
 	@Path("datasets/{" + UUID + "}/channels")
 	@Operation(summary = "Not allowed channels PUT")
-	public Response notAllowedChannelsPut(@PathParam(UUID) String uuid) {
+	public Uni<Response> notAllowedChannelsPut(@PathParam(UUID) String uuid) {
 		return notAllowedChannels(uuid);
 	}
 
 	@DELETE
 	@Path("datasets/{" + UUID + "}/channels")
 	@Operation(summary = "Not allowed channels DELETE")
-	public Response notAllowedChannelsDelete(@PathParam(UUID) String uuid) {
+	public Uni<Response> notAllowedChannelsDelete(@PathParam(UUID) String uuid) {
 		return notAllowedChannels(uuid);
 	}
 
-	private static Response notAllowedChannels(String uuid) {
-		log.info("not allowed method for channels of dataset=" + uuid);
-		return Response.status(Status.METHOD_NOT_ALLOWED).build();
+	private static Uni<Response> notAllowedChannels(String uuid) {
+		return Uni.createFrom().item(() -> {
+			log.info("not allowed method for channels of dataset=" + uuid);
+			return Response.status(Status.METHOD_NOT_ALLOWED).build();
+		});
+
 	}
 
 	@GET
 	@Path("datasets/{" + UUID + "}/channels")
 	@Operation(summary = "Get channels")
-	public Response getChannels(@PathParam(UUID) String uuid)
-	{
-		DatasetDTO result;
-		try {
-			result = datasetRegisterServiceImpl.query(uuid);
-		}
-		catch (SpimDataException exc) {
-			throw new InternalServerErrorException("Query to dataset failed", exc);
-		}
-		if (result == null) {
-			return Response.status(Status.NOT_FOUND).entity("Dataset with uuid=" +
-				uuid + " not found.").build();
-		}
-		return Response.ok(result).entity(result.getChannels()).build();
+	public Uni<Response> getChannels(@PathParam(UUID) String uuid) throws SpimDataException {
+		//TODO handle SpimDataExpcetion
+		return datasetRegisterServiceImpl.query(uuid)
+				.onItem().transform(result -> {
+					if (result == null) {
+						return Response.status(Status.NOT_FOUND).entity("Dataset with uuid=" +
+								uuid + " not found.").build();
+					}
+					return Response.ok(result).entity(result.getChannels()).build();
+				});
 	}
 
 	@PATCH
@@ -395,23 +411,27 @@ public class DatasetRegisterServiceEndpoint {
 			+ "/rebuild")
 	@Operation(summary = "Rebuild")
 // @formatter:on
-	public Response rebuild(@PathParam(UUID) String uuid,
+	public Uni<Response> rebuild(@PathParam(UUID) String uuid,
 		@PathParam(VERSION_PARAM) int version, @PathParam(TIME_PARAM) int time,
 		@PathParam(CHANNEL_PARAM) int channel, @PathParam(ANGLE_PARAM) int angle)
 	{
-		try {
-			datasetRegisterServiceImpl.rebuild(uuid, version, time, channel, angle);
-		}
-		catch (IOException exc) {
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(exc
-				.getMessage()).build();
-		}
-		catch (SpimDataException exc) {
-			log.error("rebuild", exc);
-			throw new InternalServerErrorException(
-				"Rebuild failure. Contact administrator");
-		}
-		return Response.status(Status.NOT_IMPLEMENTED).build();
+
+		return Uni.createFrom().item(() -> {
+			try {
+				datasetRegisterServiceImpl.rebuild(uuid, version, time, channel, angle);
+			}
+			catch (IOException exc) {
+				return Response.status(Status.INTERNAL_SERVER_ERROR).entity(exc
+						.getMessage()).build();
+			}
+			catch (SpimDataException exc) {
+				log.error("rebuild", exc);
+				throw new InternalServerErrorException(
+						"Rebuild failure. Contact administrator");
+			}
+			return Response.status(Status.NOT_IMPLEMENTED).build();
+		});
+
 	}
 
 	public List<int[]> getResolutions(int rX, int rY, int rZ,

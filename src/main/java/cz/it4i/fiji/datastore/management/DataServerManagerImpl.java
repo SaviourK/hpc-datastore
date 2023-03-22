@@ -222,6 +222,7 @@ class DataServerManagerImpl implements DataServerManager {
 		ProcessBuilder pb = new ProcessBuilder().inheritIO();
 		List<String> commandAsList = new LinkedList<>();
 		//@formatter:off
+		//TODO fix this
 		ListAppender<String> appender = new ListAppender<>(commandAsList)
 				.append("java")
 				.append("-Dquarkus.http.port=" + port)
