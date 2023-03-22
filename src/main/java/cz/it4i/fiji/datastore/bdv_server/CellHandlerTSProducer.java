@@ -24,6 +24,7 @@ import cz.it4i.fiji.datastore.ApplicationConfiguration;
 import cz.it4i.fiji.datastore.core.Version;
 import cz.it4i.fiji.datastore.register_service.DatasetRepository;
 import cz.it4i.fiji.datastore.register_service.WriteToVersionListener;
+import io.smallrye.mutiny.Uni;
 
 @ApplicationScoped
 class CellHandlerTSProducer implements WriteToVersionListener {
@@ -36,15 +37,17 @@ class CellHandlerTSProducer implements WriteToVersionListener {
 
 	final private Map<String, CellHandlerTS> cellHandlersTS = new HashMap<>();
 
-	synchronized CellHandlerTS produce(URI baseURI, String uuidStr,
+	synchronized Uni<CellHandlerTS> produce(URI baseURI, String uuidStr,
 		final String versionStr)
 	{
 		final int version = stringToIntVersion(versionStr);
 		String key = getKey(uuidStr, versionStr);
 		String baseURL = baseURI.resolve("bdv/").resolve(uuidStr + "/").resolve(
-			versionStr).toString();
-		return cellHandlersTS.computeIfAbsent(key, x -> create(baseURL, uuidStr,
-			version));
+				versionStr).toString();
+		return create(baseURL, uuidStr,
+				version).onItem().transform(ch -> {
+			return cellHandlersTS.computeIfAbsent(key, x -> ch);
+		});
 	}
 
 	@Override
@@ -75,19 +78,21 @@ class CellHandlerTSProducer implements WriteToVersionListener {
 		cellHandlersTS.remove(getKey(uuidStr, Version.MIXED_LATEST_VERSION_NAME));
 	}
 
-	private CellHandlerTS create(String baseURL, String uuid, int version) {
+	private Uni<CellHandlerTS> create(String baseURL, String uuid, int version) {
 
 		// only for check that version exists
 		repository.findByUUIDVersion(uuid, version);
 
-		try {
-			return new CellHandlerTS(configuration.getDatasetHandler(uuid), () ->repository.findByUUID(uuid),
-				baseURL, version, uuid + "_version-" + version, GetThumbnailsDirectoryTS
-					.$());
-		}
-		catch (IOException exc) {
-			throw new RuntimeException(exc);
-		}
+		return repository.findByUUID(uuid).onItem().transform(ds -> {
+			try {
+				return new CellHandlerTS(configuration.getDatasetHandler(uuid), () -> ds,
+						baseURL, version, uuid + "_version-" + version, GetThumbnailsDirectoryTS
+						.$());
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		});
+
 	}
 
 }

@@ -1,4 +1,6 @@
 quarkus:
+  arc:
+    remove-unused-beans: none #fix removing unused beans and remove this annotations
   http:
     port: 9080
     ssl:
@@ -11,13 +13,15 @@ quarkus:
     ssl-port: 9443
     host: 0.0.0.0
   datasource:
-    db-kind: h2
-    jdbc:
-      url: jdbc:h2:./target/output/myDb
+    db-kind: postgresql
+    username: postgres
+    password: postgres
+    reactive:
+      url: postgresql://localhost:5432/hpc-datastore
   hibernate-orm:
     log:
     #sql: true
     database:
-      generation: update
+      generation: drop-and-create
   shutdown:
     timeout: 1

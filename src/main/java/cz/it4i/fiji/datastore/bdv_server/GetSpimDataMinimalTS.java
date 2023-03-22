@@ -28,9 +28,9 @@ import bdv.spimdata.SpimDataMinimal;
 import cz.it4i.fiji.datastore.ApplicationConfiguration;
 import cz.it4i.fiji.datastore.DatasetHandler;
 import cz.it4i.fiji.datastore.core.Version;
-import cz.it4i.fiji.datastore.register_service.Dataset;
 import cz.it4i.fiji.datastore.register_service.DatasetRepository;
 import cz.it4i.fiji.datastore.register_service.DatasetVersion;
+import io.smallrye.mutiny.Uni;
 import mpicbg.spim.data.SpimData;
 import mpicbg.spim.data.SpimDataException;
 import mpicbg.spim.data.generic.base.Entity;
@@ -54,7 +54,7 @@ public final class GetSpimDataMinimalTS {
 	@Inject
 	ApplicationConfiguration configuration;
 
-	SpimDataMinimal run(String uuid, String versionStr)
+	Uni<SpimDataMinimal> run(String uuid, String versionStr)
 		throws SpimDataException
 	{
 		try {
@@ -73,41 +73,48 @@ public final class GetSpimDataMinimalTS {
 		}
 	}
 
-	private SpimDataMinimal getAllVersionInOneDataset(String uuid)
+	private Uni<SpimDataMinimal> getAllVersionInOneDataset(String uuid)
 		throws SpimDataException
 	{
-		Dataset dataset = repository.findByUUID(uuid);
-		Map<Integer, BasicViewSetup> setups = new HashMap<>();
-		Map<ViewId, ViewRegistration> viewRegistrations = new HashMap<>();
-		Collection<ViewId> missingViews = new LinkedList<>();
+		return repository.findByUUID(uuid)
+				.onItem().transform(dataset -> {
+					Map<Integer, BasicViewSetup> setups = new HashMap<>();
+					Map<ViewId, ViewRegistration> viewRegistrations = new HashMap<>();
+					Collection<ViewId> missingViews = new LinkedList<>();
 
-		DatasetHandler handler = configuration.getDatasetHandler(uuid);
-		SpimDataMinimal spimDataMinimal;
-		spimDataMinimal = SpimDataMapper.asSpimDataMinimal(handler.getSpimData());
-		SequenceDescriptionMinimal seqMinimal = spimDataMinimal
-			.getSequenceDescription();
-		BasicImgLoader basicImgLoader = seqMinimal.getImgLoader();
-		TimePoints timePoints = seqMinimal.getTimePoints();
+					DatasetHandler handler = configuration.getDatasetHandler(uuid);
+					SpimDataMinimal spimDataMinimal;
+					try {
+						spimDataMinimal = SpimDataMapper.asSpimDataMinimal(handler.getSpimData());
+					} catch (SpimDataException e) {
+						throw new RuntimeException(e);
+					}
+					SequenceDescriptionMinimal seqMinimal = spimDataMinimal
+							.getSequenceDescription();
+					BasicImgLoader basicImgLoader = seqMinimal.getImgLoader();
+					TimePoints timePoints = seqMinimal.getTimePoints();
 
-		File path = spimDataMinimal.getBasePath();
+					File path = spimDataMinimal.getBasePath();
 
-		for (DatasetVersion version : dataset.getDatasetVersion().stream().sorted(
-			comparingInt(DatasetVersion::getValue)).collect(toList()))
-		{
-			Version processedVersion = new Version(version.getValue());
+					for (DatasetVersion version : dataset.getDatasetVersion().stream().sorted(
+							comparingInt(DatasetVersion::getValue)).collect(toList()))
+					{
+						Version processedVersion = new Version(version.getValue());
 
-			processVersion(processedVersion, setups, viewRegistrations, missingViews,
-				spimDataMinimal, seqMinimal);
-		}
-		processVersion(new Version(Version.MIXED_LATEST_VERSION_NAME), setups,
-			viewRegistrations, missingViews, spimDataMinimal, seqMinimal);
+						processVersion(processedVersion, setups, viewRegistrations, missingViews,
+								spimDataMinimal, seqMinimal);
+					}
+					processVersion(new Version(Version.MIXED_LATEST_VERSION_NAME), setups,
+							viewRegistrations, missingViews, spimDataMinimal, seqMinimal);
 
-		SequenceDescriptionMinimal sd = new SequenceDescriptionMinimal(timePoints,
-			setups, basicImgLoader, new MissingViews(missingViews));
+					SequenceDescriptionMinimal sd = new SequenceDescriptionMinimal(timePoints,
+							setups, basicImgLoader, new MissingViews(missingViews));
 
-		ViewRegistrations vr = new ViewRegistrations(viewRegistrations);
-		SpimDataMinimal result = new SpimDataMinimal(path, sd, vr);
-		return result;
+					ViewRegistrations vr = new ViewRegistrations(viewRegistrations);
+					SpimDataMinimal result = new SpimDataMinimal(path, sd, vr);
+					return result;
+				});
+
 	}
 
 	public void processVersion(Version processedVersion,
@@ -168,7 +175,7 @@ public final class GetSpimDataMinimalTS {
 
 
 
-	private SpimDataMinimal getOneVersionInOneDataset(String uuid,
+	private Uni<SpimDataMinimal> getOneVersionInOneDataset(String uuid,
 		String versionStr) throws SpimDataException
 	{
 		repository.findByUUID(uuid);
@@ -177,6 +184,7 @@ public final class GetSpimDataMinimalTS {
 			final int version = stringToIntVersion(versionStr);
 			// only for check that version exists
 			repository.findByUUIDVersion(uuid, version);
+
 			SpimData spimdata = configuration.getDatasetHandler(uuid).getSpimData(
 				version);
 			for (ViewSetup vs : spimdata.getSequenceDescription()
@@ -184,7 +192,7 @@ public final class GetSpimDataMinimalTS {
 			{
 				vs.setAttribute(new Version(versionStr));
 			}
-			return SpimDataMapper.asSpimDataMinimal(spimdata);
+			return Uni.createFrom().item(SpimDataMapper.asSpimDataMinimal(spimdata));
 		}
 		catch (NumberFormatException exc) {
 			throw new NotFoundException(String.format("Dataset %s has no version %ds",

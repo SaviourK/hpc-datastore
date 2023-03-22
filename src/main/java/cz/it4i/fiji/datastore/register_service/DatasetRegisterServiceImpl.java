@@ -29,15 +29,12 @@ import java.util.stream.IntStream;
 import javax.enterprise.context.RequestScoped;
 import javax.enterprise.inject.Default;
 import javax.inject.Inject;
-import javax.transaction.HeuristicMixedException;
-import javax.transaction.HeuristicRollbackException;
 import javax.transaction.NotSupportedException;
-import javax.transaction.RollbackException;
 import javax.transaction.SystemException;
-import javax.transaction.Transactional;
-import javax.transaction.UserTransaction;
 import javax.ws.rs.NotFoundException;
 
+import io.quarkus.hibernate.reactive.panache.common.runtime.ReactiveTransactional;
+import io.smallrye.mutiny.Uni;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.realtransform.AffineTransform3D;
 import net.imglib2.type.NativeType;
@@ -91,14 +88,16 @@ public class DatasetRegisterServiceImpl {
 	@Inject
 	DatasetRepository datasetDAO;
 
-	@Inject
-	UserTransaction transaction;
+	//@Inject
+	//UserTransaction transaction;
 
 	@Inject
 	WriteToVersionListener writeToVersionListener;
 
 	private Map<String, Compression> name2compression = null;
 
+	//TODO refactor all methods
+	@ReactiveTransactional
 	public void addExistingDataset(String uuid) throws IOException,
 		SpimDataException, SystemException, NotSupportedException
 	{
@@ -108,95 +107,82 @@ public class DatasetRegisterServiceImpl {
 		final SpimData spimData = handler.getSpimData(firstVersion);
 		final N5Reader reader = handler.getWriter(firstVersion);
 		final String label = handler.getLabel();
-		transaction.begin();
-		boolean trxActive = true;
 		try {
 			try {
 				datasetDAO.findByUUID(uuid);
 				throw new DatasetAlreadyInsertedException(uuid);
-			}
-			catch (NotFoundException e) {
+			} catch (NotFoundException e) {
 				// ignore this because it is correct behaviour
 			}
 			final Dataset dataset = DatasetAssembler.createDomainObject(uuid,
-				versions, reader, spimData, label);
+					versions, reader, spimData, label);
 			log.info("Adding dataset: {}", dataset);
 			datasetDAO.persist(dataset);
-			trxActive = false;
-			transaction.commit();
-		}
-		catch (RollbackException | HeuristicMixedException
-				| HeuristicRollbackException
-				| SystemException exc)
-		{
-			log.error("commit", exc);
-		}
-		finally {
-			if (trxActive) {
-				transaction.rollback();
-			}
+		} catch (Exception e) {
+			throw new RuntimeException(e);
 		}
 	}
 
-	public UUID createEmptyDataset(DatasetDTO datasetDTO) throws IOException,
+	public Uni<String> createEmptyDataset(DatasetDTO datasetDTO) throws IOException,
 		SpimDataException, NotSupportedException, SystemException
 	{
-		UUID result = UUID.randomUUID();
-		new CreateNewDatasetTS().run(configuration.getDatasetHandler(result
-			.toString()), convert(datasetDTO));
-		transaction.begin();
-		boolean trxActive = true;
-		try {
+
+		String uuid = UUID.randomUUID().toString();
+		new CreateNewDatasetTS().run(configuration.getDatasetHandler(uuid), convert(datasetDTO));
+
 			Dataset dataset = DatasetAssembler.createDomainObject(datasetDTO);
-			dataset.setUuid(result.toString());
+			dataset.setUuid(uuid);
 			dataset.setDatasetVersion(new LinkedList<>());
 			dataset.getDatasetVersion().add(DatasetVersion.builder().value(0)
 				.build());
-			datasetDAO.persist(dataset);
-			trxActive = false;
-			transaction.commit();
-		}
-		catch (SecurityException | IllegalStateException | RollbackException
-				| HeuristicMixedException | HeuristicRollbackException exc)
-		{
-			log.error("commit", exc);
-		}
-		finally {
-			if (trxActive) {
-				transaction.rollback();
-			}
-		}
-		return result;
+
+			return datasetDAO.persist(dataset)
+					.onItem().transform(Dataset::getUuid)
+					.onFailure().invoke(throwable -> {
+						throw new RuntimeException(throwable);
+					});
 	}
 
-	@Transactional
-	public void addChannels(String uuid, int channels) throws SpimDataException,
+	@ReactiveTransactional
+	public Uni<Dataset> addChannels(String uuid, int channels) throws SpimDataException,
 		IOException
 	{
 		try {
-			Dataset dataset = getDataset(uuid);
-			log.debug("add {} channel for dataset with path ", channels);
-			new AddChannelTS(configuration).run(dataset, channels,
-				getCompressionMapping().get(
-				Strings.nullToEmpty(dataset.getCompression().toUpperCase())));
-			dataset.setChannels(dataset.getChannels() + channels);
-			datasetDAO.persist(dataset);
+			return getDataset(uuid)
+					.onItem().invoke(dataset -> {
+						log.debug("add {} channel for dataset with path ", channels);
+						try {
+							new AddChannelTS(configuration).run(dataset, channels,
+									getCompressionMapping().get(
+											Strings.nullToEmpty(dataset.getCompression().toUpperCase())));
+						} catch (SpimDataException e) {
+							throw new RuntimeException(e);
+						} catch (IOException e) {
+							throw new RuntimeException(e);
+						}
+						dataset.setChannels(dataset.getChannels() + channels);
+						datasetDAO.persist(dataset);
+					});
 
-		}
-		catch (SecurityException | IllegalStateException exc)
-		{
-			log.error("commit", exc);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
 		}
 
 	}
 
-	@Transactional
-	public void deleteDataset(String uuid) {
-		Dataset dataset = getDataset(uuid);
-		log.debug("dataset with UUID {} is deleted", uuid);
-		DatasetHandler dfs = configuration.getDatasetHandler(uuid);
-		datasetDAO.delete(dataset);
-		dfs.deleteDataset();
+	@ReactiveTransactional
+	public Uni<Dataset> deleteDataset(String uuid) {
+		return getDataset(uuid)
+				.onItem().invoke(dataset -> {
+					log.debug("dataset with UUID {} is deleted", uuid);
+					DatasetHandler dfs = configuration.getDatasetHandler(uuid);
+					Uni<Void> deleteResult = datasetDAO.delete(dataset);
+					dfs.deleteDataset();
+
+					deleteResult
+							.onFailure().invoke(failure -> log.error("Failed to delete dataset", failure))
+							.subscribe().with(ignore -> log.debug("dataset deleted"));
+				});
 
 	}
 
@@ -209,18 +195,29 @@ public class DatasetRegisterServiceImpl {
 		}
 	}
 
-	public DatasetDTO query(String uuid) throws SpimDataException {
-		final Dataset dataset = getDataset(uuid);
-		final SpimData spimData = configuration.getDatasetHandler(uuid)
-			.getSpimData();
-		final DatasetDTO result = DatasetAssembler.createDatatransferObject(dataset,
-			spimData.getSequenceDescription().getTimePoints());
-		return result;
+	public Uni<DatasetDTO> query(String uuid) throws SpimDataException {
+		return getDataset(uuid)
+				.onItem().transform(dataset -> {
+					final SpimData spimData;
+					try {
+						spimData = configuration.getDatasetHandler(uuid)
+								.getSpimData();
+					} catch (SpimDataException e) {
+						throw new RuntimeException(e);
+					}
+					final DatasetDTO result = DatasetAssembler.createDatatransferObject(dataset,
+							spimData.getSequenceDescription().getTimePoints());
+					return result;
+				});
+
 	}
 
-	public String getCommonMetadata(String uuid) {
-		Dataset dataset = getDataset(uuid);
-		return Strings.nullToEmpty(dataset.getMetadata());
+	public Uni<String> getCommonMetadata(String uuid) {
+		return getDataset(uuid)
+				.onItem().transform(dataset -> {
+					return Strings.nullToEmpty(dataset.getMetadata());
+				});
+
 	}
 
 	public <T extends RealType<T> & NativeType<T>> void rebuild(String uuid,
@@ -228,85 +225,129 @@ public class DatasetRegisterServiceImpl {
 		int angle) throws IOException, SpimDataException
 	{
 		
-		Dataset dataset = getDataset(uuid);
-		DatasetHandler dh = configuration.getDatasetHandler(uuid);
+		getDataset(uuid)
+				.onItem().invoke(dataset -> {
+					DatasetHandler dh = configuration.getDatasetHandler(uuid);
 
-		N5Access n5Access = new N5Access(dh.getSpimData(), dh.getWriter(version),
-			Collections.singletonList(dataset.getSortedResolutionLevels().get(0)
-				.getResolutions()), OperationMode.READ_WRITE);
+					N5Access n5Access = null;
+					try {
+						n5Access = new N5Access(dh.getSpimData(), dh.getWriter(version),
+								Collections.singletonList(dataset.getSortedResolutionLevels().get(0)
+										.getResolutions()), OperationMode.READ_WRITE);
+					} catch (SpimDataException e) {
+						throw new RuntimeException(e);
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
 
-		final N5Writer writer = n5Access.getWriter();
-		final RandomAccessibleInterval<T> img = N5Utils.open(writer, n5Access
-			.getViewSetupTimepoint(time, channel, angle).getPath(
-				IDENTITY_RESOLUTION));
-		final T type = img.randomAccess().get();
-		N5Access.ViewSetupTimepoint vst = n5Access.getViewSetupTimepoint(time,
-			channel, angle);
-		
-		
-		
-		
+					final N5Writer writer = n5Access.getWriter();
+					final RandomAccessibleInterval<T> img;
+					try {
+						img = N5Utils.open(writer, n5Access
+								.getViewSetupTimepoint(time, channel, angle).getPath(
+										IDENTITY_RESOLUTION));
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+					final T type = img.randomAccess().get();
+					N5Access.ViewSetupTimepoint vst = n5Access.getViewSetupTimepoint(time,
+							channel, angle);
 
-		final N5DatasetIO<T> io = new N5DatasetIO<>(new SkippingScaleN5Writer(
-			writer, 1), vst.getCompression(), vst.getViewSetup().getId(), time, type);
-		//needs load class before call ExportScalePyramid.writeScalePyramid to avoid NuSuchMethodError
-		options().getClass().getMethods();
-		
-		ExportMipmapInfo emi = createExportMipmapInfo(dataset
-			.getSortedResolutionLevels().stream().skip(1).collect(Collectors
-				.toList()));
-		
-		int numThreads = numThreads();
-		final ExecutorService executorService = Executors.newFixedThreadPool(
-			numThreads());
-		try {
-			final boolean isVirtual = false;
-			final Runnable clearCache = () -> {};
-			ExportScalePyramid.writeScalePyramid(img, type, emi, io, executorService,
-				numThreads, createLoopbackHeuristic(isVirtual), createAfterEachPlane(
-					isVirtual, clearCache), new LoggerProgressWriter(log, "Rebuild"));
-		} finally {
-			executorService.shutdown();
-		}
+					final N5DatasetIO<T> io;
+					try {
+						io = new N5DatasetIO<>(new SkippingScaleN5Writer(
+								writer, 1), vst.getCompression(), vst.getViewSetup().getId(), time, type);
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+					//needs load class before call ExportScalePyramid.writeScalePyramid to avoid NuSuchMethodError
+					options().getClass().getMethods();
+
+					ExportMipmapInfo emi = createExportMipmapInfo(dataset
+							.getSortedResolutionLevels().stream().skip(1).collect(Collectors
+									.toList()));
+
+					int numThreads = numThreads();
+					final ExecutorService executorService = Executors.newFixedThreadPool(
+							numThreads());
+					try {
+						final boolean isVirtual = false;
+						final Runnable clearCache = () -> {};
+						try {
+							ExportScalePyramid.writeScalePyramid(img, type, emi, io, executorService,
+									numThreads, createLoopbackHeuristic(isVirtual), createAfterEachPlane(
+											isVirtual, clearCache), new LoggerProgressWriter(log, "Rebuild"));
+						} catch (IOException e) {
+							throw new RuntimeException(e);
+						}
+					} finally {
+						executorService.shutdown();
+					}
+				});
 	}
 
 
 
-	@Transactional
-	public void setCommonMetadata(String uuid, String commonMetadata) {
-		Dataset dataset = getDataset(uuid);
-		dataset.setMetadata(commonMetadata);
-		datasetDAO.persist(dataset);
+	@ReactiveTransactional
+	public Uni<Object> setCommonMetadata(String uuid, String commonMetadata) {
+		return getDataset(uuid)
+				.onItem().ifNotNull().transform((dataset -> {
+					dataset.setMetadata(commonMetadata);
+					return dataset;
+				}));
 	}
 
-	public URI start(String uuid, int[] r, String version, OperationMode mode,
+	public Uni<URI> start(String uuid, int[] r, String version, OperationMode mode,
 		Long timeout) throws IOException
 	{
 
-		Dataset dataset = getDataset(uuid);
-		if (null == dataset.getBlockDimension(r)) {
-			throw new NotFoundException("Dataset with UUID=" + uuid +
-				" has not resolution [" + IntStream.of(r).mapToObj(i -> "" + i).collect(
-					Collectors.joining(",")) + "]");
-		}
-		int resolvedVersion = resolveVersion(dataset, version, mode);
-		if (mode.allowsWrite()) {
-			writeToVersionListener.writingToVersion(uuid, resolvedVersion);
-		}
-		return dataServerManager.startDataServer(dataset.getUuid(), r,
-			resolvedVersion, version.equals("mixedLatest"), mode, timeout);
+		return getDataset(uuid)
+				.onItem().transform(dataset -> {
+					if (null == dataset.getBlockDimension(r)) {
+						throw new NotFoundException("Dataset with UUID=" + uuid +
+								" has not resolution [" + IntStream.of(r).mapToObj(i -> "" + i).collect(
+								Collectors.joining(",")) + "]");
+					}
+					int resolvedVersion = 0;
+					try {
+						resolvedVersion = resolveVersion(dataset, version, mode);
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+					if (mode.allowsWrite()) {
+						writeToVersionListener.writingToVersion(uuid, resolvedVersion);
+					}
+					try {
+						return dataServerManager.startDataServer(dataset.getUuid(), r,
+								resolvedVersion, version.equals("mixedLatest"), mode, timeout);
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+				});
+
 	}
 
-	public URI start(String uuid, List<int[]> resolutions, Long timeout)
+	public Uni<URI> start(String uuid, List<int[]> resolutions, Long timeout)
 		throws IOException
 	{
-		Dataset dataset = getDataset(uuid);
-		// called only for checking that all resolutions exists
-		getNonIdentityResolutions(dataset, resolutions);
-		mergeVersions(dataset);
-		writeToVersionListener.writeToAllVersions(uuid);
-		return dataServerManager.startDataServer(dataset.getUuid(), resolutions,
-			timeout);
+		return getDataset(uuid)
+				.onItem().transform(dataset -> {
+					// called only for checking that all resolutions exists
+					getNonIdentityResolutions(dataset, resolutions);
+					try {
+						mergeVersions(dataset);
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+					writeToVersionListener.writeToAllVersions(uuid);
+					try {
+						return dataServerManager.startDataServer(dataset.getUuid(), resolutions,
+								timeout);
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+				});
+
 
 	}
 
@@ -409,9 +450,8 @@ public class DatasetRegisterServiceImpl {
 			new RawCompression());
 	}
 
-	private Dataset getDataset(String uuid) {
-		Dataset dataset = datasetDAO.findByUUID(uuid);
-		return dataset;
+	private Uni<Dataset> getDataset(String uuid) {
+		return datasetDAO.findByUUID(uuid);
 	}
 
 	private Map<String, Compression> getCompressionMapping() {

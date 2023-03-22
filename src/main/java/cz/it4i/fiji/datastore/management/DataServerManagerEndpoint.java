@@ -14,6 +14,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
 
 import cz.it4i.fiji.datastore.security.Authorization;
+import io.smallrye.mutiny.Uni;
 import lombok.extern.log4j.Log4j2;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 
@@ -29,9 +30,11 @@ public class DataServerManagerEndpoint {
 	@POST
 	@Path("/stop")
 	@Operation(summary = "Stop DataServer")
-	public Response stopDataServer() {
-		log.debug("Stop was requested as REST request");
-		dataServerManager.stopCurrentDataServer();
-		return Response.ok().build();
+	public Uni<Response> stopDataServer() {
+		return Uni.createFrom().item(() -> {
+			log.debug("Stop was requested as REST request");
+			dataServerManager.stopCurrentDataServer();
+			return Response.ok().build();
+		});
 	}
 }
