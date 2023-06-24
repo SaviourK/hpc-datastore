@@ -46,8 +46,10 @@ import cz.it4i.fiji.datastore.DatasetServerEndpoint.RootResponse;
 import cz.it4i.fiji.datastore.core.Version;
 import cz.it4i.fiji.datastore.register_service.OperationMode;
 import cz.it4i.fiji.datastore.security.Authorization;
+import io.smallrye.mutiny.Uni;
 import lombok.extern.log4j.Log4j2;
 import mpicbg.spim.data.SpimDataException;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 
 @Authorization
 @ApplicationScoped
@@ -73,21 +75,25 @@ public class SharedDatasetServerEndpoint implements Serializable {
 			+ "/{" + R_Z_PARAM +	"}"
 			+ "/{" + VERSION_PARAM + "}")
 	// @formatter:on
+	@Operation(summary = "Get status")
 	@GET
-	public Response getStatus(@PathParam(UUID) String uuid,
-		@PathParam(R_X_PARAM) int rX, @PathParam(R_Y_PARAM) int rY,
-		@PathParam(R_Z_PARAM) int rZ, @PathParam(VERSION_PARAM) String version)
+	public Uni<Response> getStatus(@PathParam(UUID) String uuid,
+								   @PathParam(R_X_PARAM) int rX, @PathParam(R_Y_PARAM) int rY,
+								   @PathParam(R_Z_PARAM) int rZ, @PathParam(VERSION_PARAM) String version)
 	{
+		return Uni.createFrom().item(() -> {
+			log.info("Get status: {}", uuid);
+			RootResponse result = RootResponse.builder().uuid(uuid).mode(
+							OperationMode.READ_WRITE).version(Version.stringToIntVersion(version))
+					.resolutionLevels(Collections.singletonList(
+							new int[] { rX, rY, rZ })).build();
+			ResponseBuilder responseBuilder = Response.ok();
+			responseBuilder.entity(result).type(MediaType.APPLICATION_JSON_TYPE)
+					.build();
 
-		RootResponse result = RootResponse.builder().uuid(uuid).mode(
-			OperationMode.READ_WRITE).version(Version.stringToIntVersion(version))
-			.resolutionLevels(Collections.singletonList(
-				new int[] { rX, rY, rZ })).build();
-		ResponseBuilder responseBuilder = Response.ok();
-		responseBuilder.entity(result).type(MediaType.APPLICATION_JSON_TYPE)
-			.build();
+			return responseBuilder.build();
+		});
 
-		return responseBuilder.build();
 
 	}
 
@@ -107,8 +113,9 @@ public class SharedDatasetServerEndpoint implements Serializable {
 			+ "/{" + ANGLE_PARAM +		"}"
 			+ "{" + BLOCKS_PARAM + ":/?.*}")
 	// @formatter:on
+	@Operation(summary = "Read block")
 	@GET
-	public Response readBlock(@PathParam(UUID) String uuid,
+	public Uni<Response> readBlock(@PathParam(UUID) String uuid,
 		@PathParam(R_X_PARAM) int rX, @PathParam(R_Y_PARAM) int rY,
 		@PathParam(R_Z_PARAM) int rZ, @PathParam(VERSION_PARAM) String version,
 		@PathParam(X_PARAM) long x, @PathParam(Y_PARAM) long y,
@@ -116,10 +123,10 @@ public class SharedDatasetServerEndpoint implements Serializable {
 		@PathParam(CHANNEL_PARAM) int channel, @PathParam(ANGLE_PARAM) int angle,
 		@PathParam(BLOCKS_PARAM) String blocks)
 	{
-
-		return requestHandler.readBlock(getDataSetserver(uuid, rX, rY, rZ, version),
-			x, y, z, time, channel, angle, blocks);
-
+		return Uni.createFrom().item(() -> {
+			return requestHandler.readBlock(getDataSetserver(uuid, rX, rY, rZ, version),
+					x, y, z, time, channel, angle, blocks);
+		});
 	}
 
 	@Authorization
@@ -138,9 +145,10 @@ public class SharedDatasetServerEndpoint implements Serializable {
 			+"/{" + ANGLE_PARAM +		"}"
 			+ "{" + BLOCKS_PARAM + ":/?.*}")
 	// @formatter:on
+	@Operation(summary = "Write block")
 	@POST
 	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
-	public Response writeBlock(@PathParam(UUID) String uuid,
+	public Uni<Response> writeBlock(@PathParam(UUID) String uuid,
 		@PathParam(R_X_PARAM) int rX, @PathParam(R_Y_PARAM) int rY,
 		@PathParam(R_Z_PARAM) int rZ, @PathParam(VERSION_PARAM) String version,
 		@PathParam(X_PARAM) long x, @PathParam(Y_PARAM) long y,
@@ -148,8 +156,11 @@ public class SharedDatasetServerEndpoint implements Serializable {
 		@PathParam(CHANNEL_PARAM) int channel, @PathParam(ANGLE_PARAM) int angle,
 		@PathParam(BLOCKS_PARAM) String blocks, InputStream inputStream)
 	{
-		return requestHandler.writeBlock(getDataSetserver(uuid, rX, rY, rZ,
-			version), x, y, z, time, channel, angle, blocks, inputStream);
+		return Uni.createFrom().item(() -> {
+			return requestHandler.writeBlock(getDataSetserver(uuid, rX, rY, rZ,
+					version), x, y, z, time, channel, angle, blocks, inputStream);
+		});
+
 	}
 
 	@Authorization
@@ -165,25 +176,32 @@ public class SharedDatasetServerEndpoint implements Serializable {
 			+"/{" + CHANNEL_PARAM + "}"
 			+"/{" + ANGLE_PARAM +		"}")
 	// @formatter:on
+	@Operation(summary = "Get type")
 	@GET
-	public Response getType(@PathParam(UUID) String uuid,
+	public Uni<Response> getType(@PathParam(UUID) String uuid,
 		@PathParam(R_X_PARAM) int rX, @PathParam(R_Y_PARAM) int rY,
 		@PathParam(R_Z_PARAM) int rZ, @PathParam(VERSION_PARAM) String version,
 		@PathParam(TIME_PARAM) int time, @PathParam(CHANNEL_PARAM) int channel,
 		@PathParam(ANGLE_PARAM) int angle)
 	{
-		return requestHandler.getType(getDataSetserver(uuid, rX, rY, rZ, version),
-			time, channel, angle);
+		return Uni.createFrom().item(() -> {
+			return requestHandler.getType(getDataSetserver(uuid, rX, rY, rZ, version),
+					time, channel, angle);
+		});
+
 	}
 
 	@POST
 	@Path("datasets" + "/{" + UUID + "}" + "/{" + R_X_PARAM + "}" + "/{" +
 		R_Y_PARAM + "}" + "/{" + R_Z_PARAM + "}" + "/{" + VERSION_PARAM + "}" +
 		"/stop")
-	public Response stopDataServer() {
+	@Operation(summary = "Stop data server")
+	public Uni<Response> stopDataServer() {
 		log.debug("Stop was requested as REST request and ignored");
+		return Uni.createFrom().item(() -> {
+			return Response.ok().build();
+		});
 
-		return Response.ok().build();
 	}
 
 	private DatasetServerImpl getDataSetserver(String uuid, int rX, int rY,

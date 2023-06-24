@@ -9,6 +9,7 @@ package cz.it4i.fiji.datastore.bdv_server;
 
 import static cz.it4i.fiji.datastore.register_service.DatasetRegisterServiceEndpoint.UUID;
 import static cz.it4i.fiji.datastore.register_service.DatasetRegisterServiceEndpoint.VERSION_PARAM;
+import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.MediaType.APPLICATION_XML;
 
 import java.io.IOException;
@@ -25,15 +26,18 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
-import bdv.spimdata.SpimDataMinimal;
 import bdv.spimdata.XmlIoSpimDataMinimal;
 import cz.it4i.fiji.datastore.ApplicationConfiguration;
 import cz.it4i.fiji.datastore.core.HPCDatastoreImageLoader;
+import io.smallrye.mutiny.Uni;
 import mpicbg.spim.data.SpimDataException;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.jboss.resteasy.reactive.RestResponse;
 
 @ApplicationScoped
 @Path("/")
@@ -53,33 +57,43 @@ public class HPCDatastoreEndpoint {
 
 	@GET
 	@Path("/datasets/{" + UUID + "}/json")
-	public void getJSONListDatastoreLoader(@PathParam(UUID) String uuid,
-		@Context HttpServletResponse response, @Context UriInfo uriInfo)
+	@Operation(summary = "Get JSON List datastore loader")
+	//TODO fix using HttpServletResponse in reactive approach (error - ut000048: no request is currently active)
+	public Uni<RestResponse<String>> getJSONListDatastoreLoader(@PathParam(UUID) String uuid, @Context UriInfo uriInfo)
 		throws IOException
 	{
-		jsonDatasetListHandlerTS.run(uuid, response,
-				uriInfo.getRequestUri(), true);
-
-
+		return jsonDatasetListHandlerTS.run(uuid, uriInfo.getRequestUri(), true)
+				.onItem().transform(jsonObject -> {
+					return RestResponse
+							.ResponseBuilder
+							.ok(jsonObject.toString(), MediaType.APPLICATION_JSON_TYPE)
+							.status(HttpServletResponse.SC_OK)
+							.build();
+				});
 	}
 
 	@GET
 	@Path("datasets/{" + UUID + "}/{" + VERSION_PARAM +
 		":(all|\\d+)|mixedLatest}")
 	@Produces(APPLICATION_XML)
-	public Response getMetadataXML(@PathParam(UUID) String uuidStr,
-		@PathParam(VERSION_PARAM) String versionStr, @Context UriInfo uriInfo)
+	@Operation(summary = "Get metadata XML")
+	public Uni<Response> getMetadataXML(@PathParam(UUID) String uuidStr,
+										@PathParam(VERSION_PARAM) String versionStr, @Context UriInfo uriInfo)
 	{
-
-
 		final XmlIoSpimDataMinimal io = new XmlIoSpimDataMinimal();
 
 		try (final StringWriter ow = new StringWriter()) {
-			SpimDataMinimal spimData = getSpimDataMinimalTS.run(uuidStr, versionStr);
-			BuildRemoteDatasetXmlTS.run(io, spimData, new HPCDatastoreImageLoader(uriInfo.getRequestUri().toString()), ow);
-			return Response.ok(ow.toString()).build();
-		}
-		catch (IOException | SpimDataException exc) {
+			return getSpimDataMinimalTS.run(uuidStr, versionStr).onItem().transform(spimData -> {
+				try {
+					BuildRemoteDatasetXmlTS.run(io, spimData, new HPCDatastoreImageLoader(uriInfo.getRequestUri().toString()), ow);
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				} catch (SpimDataException e) {
+					throw new RuntimeException(e);
+				}
+				return Response.ok(ow.toString()).build();
+			});
+		} catch (IOException | SpimDataException exc) {
 			throw new InternalServerErrorException(exc);
 		}
 
@@ -88,47 +102,64 @@ public class HPCDatastoreEndpoint {
 	@GET
 	@Path("datasets/{" + UUID + "}/{" + VERSION_PARAM +
 		":(all|\\\\d+)|mixedLatest}/png")
-	public void getThumbnail(@PathParam(UUID) String uuid,
-		@PathParam(VERSION_PARAM) String version,
-		@Context HttpServletResponse response) throws IOException
-	{
-		ThumbnailProviderTS ts = getThumbnailProvider(uuid, version);
-		ts.runForThumbnail(response);
+	@Operation(summary = "Get Thumbnail")
+	//TODO fix using HttpServletResponse in reactive approach (error - ut000048: no request is currently active)
+	public Uni<RestResponse<byte[]>> getThumbnail(@PathParam(UUID) String uuid, @PathParam(VERSION_PARAM) String version) throws IOException, SpimDataException {
+		return getThumbnailProvider(uuid, version)
+				.onItem().transform(ts -> {
+					try {
+						//TODO content lenght?
+						final byte[] bytes = ts.runForThumbnail();
+						return RestResponse.ResponseBuilder
+								.ok(bytes, "image/png")
+								.build();
+						//response.setContentLength(imageData.length);
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+				});
 	}
 
 	@GET
 	@Path("datasets/{" + UUID + "}" + "/{" + VERSION_PARAM + "}/settings")
 	//
-	public Response getSettingsXML()
+	@Operation(summary = "Get Settings XML")
+	public Uni<Response> getSettingsXML()
 	{
-		return Response.status(Status.NOT_FOUND).entity("settings.xml").build();
+		return Uni.createFrom().item(() -> {
+			return Response.status(Status.NOT_FOUND).entity("settings.xml").build();
+		});
+
 	}
 
-	private ThumbnailProviderTS getThumbnailProvider(String uuid,
-		String version)
-	{
+	private Uni<ThumbnailProviderTS> getThumbnailProvider(String uuid,
+		String version) throws SpimDataException, IOException {
 		String key = getKey(uuid, version);
-		return thumbnailsGenerators.computeIfAbsent(key,
-			x -> {
-				try {
-					return constructThumbnailGeneratorTS(uuid, version);
-				}
-				catch (SpimDataException | IOException exc) {
-					throw new InternalServerErrorException(exc);
-				}
-			});
+
+		if (thumbnailsGenerators.get(key) == null) {
+			return constructThumbnailGeneratorTS(uuid, version);
+		} else {
+			return Uni.createFrom().item(thumbnailsGenerators.get(key));
+		}
 	}
 
-	private ThumbnailProviderTS constructThumbnailGeneratorTS(String uuid,
+	private Uni<ThumbnailProviderTS> constructThumbnailGeneratorTS(String uuid,
 		String version) throws SpimDataException, IOException
 	{
 		// thumbnail is done from mixedLatest version as it requires transform
 		// setups in
 		// N5Reader and get N5Reader base on setupID
 		version = "mixedLatest";
-		SpimDataMinimal spimData = getSpimDataMinimalTS.run(uuid, version);
-		return new ThumbnailProviderTS(spimData, uuid + "_version-" + version,
-			GetThumbnailsDirectoryTS.$());
+		String finalVersion = version;
+		return getSpimDataMinimalTS.run(uuid, version)
+				.onItem().transform(spimData -> {
+					try {
+						return new ThumbnailProviderTS(spimData, uuid + "_version-" + finalVersion,
+								GetThumbnailsDirectoryTS.$());
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+				});
 	}
 
 	private String getKey(String uuid, String version) {
