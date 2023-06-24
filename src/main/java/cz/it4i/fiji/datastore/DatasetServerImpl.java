@@ -91,7 +91,7 @@ public class DatasetServerImpl implements Closeable, Serializable {
 	}
 
 	private void initN5Access() throws SpimDataException, IOException {
-		n5Access = new N5Access(datasetHandler.getSpimData(), createN5Writer(),
+		n5Access = new N5Access(datasetHandler.getSpimData(), datasetHandler.getUUID(), createN5Writer(),
 			resolutionLevels, mode);
 	}
 

@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.N5Writer;
 
@@ -21,6 +22,7 @@ import org.janelia.saalfeldlab.n5.N5Writer;
 public class CachingAttributesN5Writer extends N5WriterDecorator {
 
 	private final Set<String> cachedAttributes;
+	private final String uuid;
 
 	private final Map<String, Map<String, Object>> asAttributePerValuePerPath =
 		new HashMap<>();
@@ -28,12 +30,13 @@ public class CachingAttributesN5Writer extends N5WriterDecorator {
 	private final Map<String, DatasetAttributes> asDatasetAttributesPerPath =
 		new HashMap<>();
 
-	public CachingAttributesN5Writer(N5Writer writer,
+	public CachingAttributesN5Writer(N5Writer writer, String uuid,
 		String... cachedAttributes)
 	{
 		super(writer);
 		this.cachedAttributes = Stream.of(cachedAttributes).collect(Collectors
 			.toSet());
+		this.uuid = uuid;
 	}
 
 
@@ -107,6 +110,28 @@ public class CachingAttributesN5Writer extends N5WriterDecorator {
 			asAttributePerValuePerPath.remove(pathName);
 		}
 		super.setDatasetAttributes(pathName, datasetAttributes);
+	}
+
+	@Override
+	public boolean deleteBlock(String pathName, long[] gridPosition) throws IOException {
+		BlockCacheService.invalidateFromCache(uuid, gridPosition, pathName);
+		return super.deleteBlock(pathName, gridPosition);
+	}
+
+	@Override
+	public DataBlock<?> readBlock(String pathName, DatasetAttributes datasetAttributes, long[] gridPosition) throws IOException {
+		String cacheKey = BlockCacheService.generateCacheKey(uuid, gridPosition, pathName);
+		DataBlock<?> result = BlockCacheService.getIfPresent(cacheKey);
+		if (result != null) {
+			return result;
+		}
+		return readAndAddToCache(pathName, datasetAttributes, gridPosition, cacheKey);
+	}
+
+	private DataBlock<?> readAndAddToCache(String pathName, DatasetAttributes datasetAttributes, long[] gridPosition, String cacheKey) throws IOException {
+		final DataBlock<?> dataBlock = super.readBlock(pathName, datasetAttributes, gridPosition);
+		BlockCacheService.put(cacheKey, dataBlock);
+		return dataBlock;
 	}
 
 }

@@ -35,6 +35,7 @@ import javax.ws.rs.NotFoundException;
 
 import io.quarkus.hibernate.reactive.panache.common.runtime.ReactiveTransactional;
 import io.smallrye.mutiny.Uni;
+import cz.it4i.fiji.datastore.*;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.realtransform.AffineTransform3D;
 import net.imglib2.type.NativeType;
@@ -56,13 +57,8 @@ import bdv.export.ExportMipmapInfo;
 import bdv.export.ExportScalePyramid;
 import bdv.export.ExportScalePyramid.AfterEachPlane;
 import bdv.export.ExportScalePyramid.LoopbackHeuristic;
-import cz.it4i.fiji.datastore.ApplicationConfiguration;
-import cz.it4i.fiji.datastore.CreateNewDatasetTS;
 import cz.it4i.fiji.datastore.CreateNewDatasetTS.N5Description;
 import cz.it4i.fiji.datastore.CreateNewDatasetTS.N5Description.N5DescriptionBuilder;
-import cz.it4i.fiji.datastore.DatasetHandler;
-import cz.it4i.fiji.datastore.DatasetServerImpl;
-import cz.it4i.fiji.datastore.N5Access;
 import cz.it4i.fiji.datastore.core.DatasetDTO;
 import cz.it4i.fiji.datastore.core.MipmapInfoAssembler;
 import cz.it4i.fiji.datastore.management.DataServerManager;
@@ -178,7 +174,7 @@ public class DatasetRegisterServiceImpl {
 					DatasetHandler dfs = configuration.getDatasetHandler(uuid);
 					Uni<Void> deleteResult = datasetDAO.delete(dataset);
 					dfs.deleteDataset();
-
+		BlockCacheService.invalidateAllWithUuid(uuid);
 					deleteResult
 							.onFailure().invoke(failure -> log.error("Failed to delete dataset", failure))
 							.subscribe().with(ignore -> log.debug("dataset deleted"));
@@ -192,6 +188,7 @@ public class DatasetRegisterServiceImpl {
 		DatasetHandler dfs = configuration.getDatasetHandler(uuid);
 		for (Integer version : versionList) {
 			dfs.deleteVersion(version);
+			BlockCacheService.invalidateAllWithUuidAndVersion(uuid, String.valueOf(version));
 		}
 	}
 
@@ -231,7 +228,7 @@ public class DatasetRegisterServiceImpl {
 
 					N5Access n5Access = null;
 					try {
-						n5Access = new N5Access(dh.getSpimData(), dh.getWriter(version),
+						n5Access = new N5Access(dh.getSpimData(), dh.getUUID(), dh.getWriter(version),
 								Collections.singletonList(dataset.getSortedResolutionLevels().get(0)
 										.getResolutions()), OperationMode.READ_WRITE);
 					} catch (SpimDataException e) {

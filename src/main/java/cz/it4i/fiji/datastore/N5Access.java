@@ -172,6 +172,7 @@ public class N5Access {
 
 
 	public N5Access(AbstractSpimData<SequenceDescription> spimData,
+		String uuid,
 		N5Writer aWriter,
 		List<int[]> aResolutionLevels, OperationMode aMode)
 	{
@@ -190,7 +191,7 @@ public class N5Access {
 			}
 		}
 		this.spimData = spimData;
-		writer = new CachingAttributesN5Writer(aWriter, DOWNSAMPLING_FACTORS);
+		writer = new CachingAttributesN5Writer(aWriter, uuid, DOWNSAMPLING_FACTORS);
 		if (aMode == OperationMode.WRITE_TO_OTHER_RESOLUTIONS ||
 			aMode == OperationMode.NO_ACCESS)
 		{

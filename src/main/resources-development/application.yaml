@@ -9,7 +9,7 @@ quarkus:
           - META-INF/resources/cert.pem
         key-files:
           - META-INF/resources/cert-key.pem
-    http2: false
+    http2: true
     ssl-port: 9443
     host: 0.0.0.0
   datasource:

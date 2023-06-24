@@ -223,6 +223,12 @@
             <artifactId>quarkus-hibernate-reactive</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
+            <version>0.17</version>
+        </dependency>
+
 
         <!-- Hibernate ORM specific dependencies -->
         <dependency>
@@ -329,7 +335,10 @@
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
         </dependency>
-
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-cache</artifactId>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
