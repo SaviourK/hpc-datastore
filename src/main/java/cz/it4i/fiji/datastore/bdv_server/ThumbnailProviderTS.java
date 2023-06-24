@@ -41,28 +41,20 @@ public class ThumbnailProviderTS {
 			thumbnailsDirectory);
 	}
 
-	public void runForThumbnail(final HttpServletResponse response)
+	public byte[] runForThumbnail()
 		throws IOException
 	{
-		provideThumbnail(response);
+		return provideThumbnail();
 	}
 
-	private void provideThumbnail(final HttpServletResponse response)
+	private byte[] provideThumbnail()
 		throws IOException
 	{
 		final Path path = Paths.get(thumbnailFilename);
 		if (Files.exists(path)) {
-			final byte[] imageData = Files.readAllBytes(path);
-			if (imageData != null) {
-				response.setContentType("image/png");
-				response.setContentLength(imageData.length);
-				response.setStatus(HttpServletResponse.SC_OK);
-
-				try (final OutputStream os = response.getOutputStream()) {
-					os.write(imageData);
-				}
-			}
+			return Files.readAllBytes(path);
 		}
+		return new byte[0];
 	}
 
 	/**

@@ -9,6 +9,7 @@ package cz.it4i.fiji.datastore.security;
 
 import static java.lang.String.format;
 
+import io.smallrye.mutiny.Uni;
 import io.vertx.core.json.JsonObject;
 
 import java.net.URI;
@@ -40,13 +41,16 @@ public class SecurityEndpoint {
 
 	@GET()
 	@Path("{" + OAUTH_SERVER + "}")
-	public Response get(@Context UriInfo requestURI, @Context HttpHeaders headers,
-		@PathParam(OAUTH_SERVER) String oauthServer, @QueryParam(CODE) String code)
+	public Uni<Response> get(@Context UriInfo requestURI, @Context HttpHeaders headers,
+							 @PathParam(OAUTH_SERVER) String oauthServer, @QueryParam(CODE) String code)
 	{
 		//@formatter:off
-		return registry.findServer(oauthServer)
-				    .map(s -> processRequest(new HashSet<>( headers.getAcceptableMediaTypes()),requestURI, s, code))
-				    .orElseGet(() -> oauthServerNotExists(oauthServer));
+		return Uni.createFrom().item(() -> {
+			return registry.findServer(oauthServer)
+					.map(s -> processRequest(new HashSet<>( headers.getAcceptableMediaTypes()),requestURI, s, code))
+					.orElseGet(() -> oauthServerNotExists(oauthServer));
+		});
+
 		//@formatter:on
 
 	}
