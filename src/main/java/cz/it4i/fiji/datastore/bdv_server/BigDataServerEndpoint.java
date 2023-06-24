@@ -11,6 +11,7 @@ import static cz.it4i.fiji.datastore.register_service.DatasetRegisterServiceEndp
 import static cz.it4i.fiji.datastore.register_service.DatasetRegisterServiceEndpoint.VERSION_PARAM;
 
 import com.google.common.base.Strings;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 
 import java.io.IOException;
 
@@ -42,6 +43,7 @@ public class BigDataServerEndpoint {
 
 	@GET
 	@Path("{" + UUID + "}/json")
+	@Operation(summary = "Get JSON list")
 	public void getJSONList(@PathParam(UUID) String uuid,
 		@Context HttpServletResponse response) throws IOException
 	{
@@ -51,6 +53,7 @@ public class BigDataServerEndpoint {
 
 	@GET
 	@Path("{" + UUID + "}/{" + VERSION_PARAM + "}")
+	@Operation(summary = "Get Cell")
 	public Response getCell(@PathParam(UUID) String uuid,
 		@PathParam(VERSION_PARAM) String version,
 		@QueryParam(P_PARAM) String cellString)
@@ -64,6 +67,7 @@ public class BigDataServerEndpoint {
 
 	@GET
 	@Path("{" + UUID + "}/{" + VERSION_PARAM + "}/settings")
+	@Operation(summary = "Get Settings")
 	public Response getSettings(@PathParam(UUID) String uuid,
 		@PathParam(VERSION_PARAM) String version)
 	{
@@ -74,6 +78,7 @@ public class BigDataServerEndpoint {
 
 	@GET
 	@Path("{" + UUID + "}/{" + VERSION_PARAM + "}/png")
+	@Operation(summary = "Get Thumbnail")
 	public void getThumbnail(@PathParam(UUID) String uuid,
 		@PathParam(VERSION_PARAM) String version,
 		@Context HttpServletResponse response) throws IOException

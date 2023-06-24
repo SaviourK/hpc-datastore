@@ -15,6 +15,7 @@ import javax.ws.rs.core.Response;
 
 import cz.it4i.fiji.datastore.security.Authorization;
 import lombok.extern.log4j.Log4j2;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 
 @Log4j2
 @Authorization
@@ -27,6 +28,7 @@ public class DataServerManagerEndpoint {
 
 	@POST
 	@Path("/stop")
+	@Operation(summary = "Stop DataServer")
 	public Response stopDataServer() {
 		log.debug("Stop was requested as REST request");
 		dataServerManager.stopCurrentDataServer();

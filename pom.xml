@@ -69,8 +69,8 @@
         <cdi-api.version>2.0.SP1</cdi-api.version>
         <quarkus.platform.group-id>io.quarkus</quarkus.platform.group-id>
         <quarkus.platform.artifact-id>quarkus-universe-bom</quarkus.platform.artifact-id>
-        <quarkus.platform.version>2.7.5.Final</quarkus.platform.version>
-        <quarkus-plugin.version>2.7.5.Final</quarkus-plugin.version>
+        <quarkus.platform.version>2.16.3.Final</quarkus.platform.version>
+        <quarkus-plugin.version>2.16.3.Final</quarkus-plugin.version>
         <persistence-api.version>3.0.0</persistence-api.version>
         <hibernate.version>5.4.25.Final</hibernate.version>
         <derby.version>10.14.2.0</derby.version>
@@ -91,6 +91,12 @@
         <repository>
             <id>scijava.public</id>
             <url>https://maven.scijava.org/content/groups/public</url>
+        </repository>
+        <repository>
+            <id>microprofile</id>
+            <url>https://repo.eclipse.org/content/repositories/microprofile/</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
         </repository>
     </repositories>
     <distributionManagement>
@@ -157,12 +163,14 @@
 		<dependency>
 		    <groupId>xerces</groupId>
 		    <artifactId>xercesImpl</artifactId>
+            <version>2.12.2</version>
 		</dependency>
 		
 		<!-- https://mvnrepository.com/artifact/com.fasterxml.woodstox/woodstox-core -->
 		<dependency>
 		    <groupId>com.fasterxml.woodstox</groupId>
 		    <artifactId>woodstox-core</artifactId>
+            <version>6.1.1</version>
 		</dependency>
 		
 				
@@ -171,6 +179,7 @@
 		<dependency>
 		    <groupId>xalan</groupId>
 		    <artifactId>xalan</artifactId>
+            <version>2.7.2</version>
 		</dependency>
 		
         <dependency>
@@ -193,6 +202,11 @@
         </dependency>
 
         <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-openapi</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.rest-assured</groupId>
             <artifactId>rest-assured</artifactId>
             <scope>test</scope>
@@ -207,6 +221,12 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-hibernate-orm</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
+            <version>0.17</version>
         </dependency>
 
 
@@ -270,6 +290,7 @@
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-api</artifactId>
+            <version>2.17.1</version>
         </dependency>
      
         <!-- https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-slf4j-impl -->
@@ -295,6 +316,10 @@
 		 <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-cache</artifactId>
         </dependency>
     </dependencies>
     <build>

@@ -34,6 +34,7 @@ import bdv.spimdata.XmlIoSpimDataMinimal;
 import cz.it4i.fiji.datastore.ApplicationConfiguration;
 import cz.it4i.fiji.datastore.core.HPCDatastoreImageLoader;
 import mpicbg.spim.data.SpimDataException;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 
 @ApplicationScoped
 @Path("/")
@@ -53,6 +54,7 @@ public class HPCDatastoreEndpoint {
 
 	@GET
 	@Path("/datasets/{" + UUID + "}/json")
+	@Operation(summary = "Get JSON List datastore loader")
 	public void getJSONListDatastoreLoader(@PathParam(UUID) String uuid,
 		@Context HttpServletResponse response, @Context UriInfo uriInfo)
 		throws IOException
@@ -67,6 +69,7 @@ public class HPCDatastoreEndpoint {
 	@Path("datasets/{" + UUID + "}/{" + VERSION_PARAM +
 		":(all|\\d+)|mixedLatest}")
 	@Produces(APPLICATION_XML)
+	@Operation(summary = "Get metadata XML")
 	public Response getMetadataXML(@PathParam(UUID) String uuidStr,
 		@PathParam(VERSION_PARAM) String versionStr, @Context UriInfo uriInfo)
 	{
@@ -88,6 +91,7 @@ public class HPCDatastoreEndpoint {
 	@GET
 	@Path("datasets/{" + UUID + "}/{" + VERSION_PARAM +
 		":(all|\\\\d+)|mixedLatest}/png")
+	@Operation(summary = "Get Thumbnail")
 	public void getThumbnail(@PathParam(UUID) String uuid,
 		@PathParam(VERSION_PARAM) String version,
 		@Context HttpServletResponse response) throws IOException
@@ -99,6 +103,7 @@ public class HPCDatastoreEndpoint {
 	@GET
 	@Path("datasets/{" + UUID + "}" + "/{" + VERSION_PARAM + "}/settings")
 	//
+	@Operation(summary = "Get Settings XML")
 	public Response getSettingsXML()
 	{
 		return Response.status(Status.NOT_FOUND).entity("settings.xml").build();
