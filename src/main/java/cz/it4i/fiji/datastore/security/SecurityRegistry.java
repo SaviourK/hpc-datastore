@@ -140,7 +140,7 @@ class SecurityRegistry {
 				builder.write(userTokens[3].toLowerCase().equals("write"));
 			}
 			Authentication temp = Authentication.builder().server(server).userID(
-				userID).user(new User(internalID, Arrays.asList(builder.build())))
+				userID).appUser(new User(internalID, Arrays.asList(builder.build())))
 				.build();
 			users.add(temp);
 		}

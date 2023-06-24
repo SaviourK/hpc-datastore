@@ -38,6 +38,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import mpicbg.spim.data.SpimDataException;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 
 @Authorization
 @ApplicationScoped
@@ -73,6 +74,7 @@ public class DatasetServerEndpoint implements Serializable {
 	@Authorization
 	@Path("/")
 	@GET
+	@Operation(summary = "Get Status of server")
 	public Response getStatus()
 	{
 		RootResponse result = RootResponse.builder().uuid(dataServerManager
@@ -103,6 +105,7 @@ public class DatasetServerEndpoint implements Serializable {
 			+ "/{" + ANGLE_PARAM + ":\\d+}"
 			+ "{" + BLOCKS_PARAM + ":/?.*}")
 	// @formatter:on
+	@Operation(summary = "Read block")
 	@GET
 	public Response readBlock(@PathParam(X_PARAM) long x,
 		@PathParam(Y_PARAM) long y, @PathParam(Z_PARAM) long z,
@@ -125,6 +128,7 @@ public class DatasetServerEndpoint implements Serializable {
 			+ "/{" + ANGLE_PARAM + ":\\d+}"
 			+ "{" + BLOCKS_PARAM + ":/?.*}")
 	// @formatter:on
+	@Operation(summary = "Write block")
 	@POST
 	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
 	public Response writeBlock(@PathParam(X_PARAM) long x,
@@ -144,6 +148,7 @@ public class DatasetServerEndpoint implements Serializable {
 			+"/{" + CHANNEL_PARAM + "}"
 			+"/{" + ANGLE_PARAM +		"}")
 	// @formatter:on
+	@Operation(summary = "Get type")
 	@GET
 	public Response getType(@PathParam(TIME_PARAM) int time,
 		@PathParam(CHANNEL_PARAM) int channel, @PathParam(ANGLE_PARAM) int angle)
