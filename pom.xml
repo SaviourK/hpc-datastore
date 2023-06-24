@@ -223,6 +223,12 @@
             <artifactId>quarkus-hibernate-orm</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
+            <version>0.17</version>
+        </dependency>
+
 
         <!-- Hibernate ORM specific dependencies -->
         <dependency>
@@ -311,16 +317,9 @@
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
         </dependency>
-
         <dependency>
-            <groupId>com.github.ben-manes.caffeine</groupId>
-            <artifactId>caffeine</artifactId>
-            <version>3.1.5</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.janelia.saalfeldlab</groupId>
-            <artifactId>n5-imglib2</artifactId>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-cache</artifactId>
         </dependency>
     </dependencies>
     <build>
